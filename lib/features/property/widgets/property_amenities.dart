@@ -13,72 +13,180 @@ class PropertyAmenities extends StatelessWidget {
     required this.property,
   });
 
+  static const Map<String, String> _categoryLabels = {
+    'security': 'Bezpieczeństwo',
+    'infrastructure': 'Infrastruktura',
+    'office': 'Biuro i usługi',
+    'terrain': 'Teren i dostęp',
+    'other': 'Inne',
+  };
+
+  static String _categoryFor(String label) {
+    const securityKeywords = ['Ochrona', 'Monitoring', 'Kontrola', 'alarm', 'p.poż'];
+    const infraKeywords = ['Parking', 'Winda', 'Dok', 'Rampa', 'Suwnice', 'Plac', 'Waga', 'Transformatornia', 'Zaplecze', 'Toalety', 'Socjalne'];
+    const officeKeywords = ['Recepcja', 'Wi-Fi', 'Sala konferencyjna', 'Restauracja', 'System rezerwacji', 'BMS', 'Klimatyzacja', 'Biura', 'Witryna', 'Wejście'];
+    const terrainKeywords = ['Ogrodzona', 'Dojazd', 'Teren', 'MPZP', 'Media', 'KW', 'Bez obciążeń', 'Wszystkie zgody'];
+    final l = label.toLowerCase();
+    if (securityKeywords.any((k) => l.contains(k.toLowerCase()))) return 'security';
+    if (infraKeywords.any((k) => l.contains(k.toLowerCase()))) return 'infrastructure';
+    if (officeKeywords.any((k) => l.contains(k.toLowerCase()))) return 'office';
+    if (terrainKeywords.any((k) => l.contains(k.toLowerCase()))) return 'terrain';
+    return 'other';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final amenities = <Map<String, dynamic>>[];
+    final features = <Map<String, dynamic>>[];
+
+    // Add features from property.features list
+    final featureIconMap = {
+      'Recepcja 24h': AppIcons.reception,
+      'Klimatyzacja': AppIcons.airConditioning,
+      'BMS': AppIcons.bms,
+      'Parking podziemny': AppIcons.parking,
+      'Winda towarowa': AppIcons.elevator,
+      'Ochrona': AppIcons.security,
+      'Monitoring CCTV': AppIcons.monitoring,
+      'Kontrola dostępu': AppIcons.accessControl,
+      'Doki załadunkowe': AppIcons.loadingDock,
+      'Rampy': AppIcons.loadingDock,
+      'Suwnice': AppIcons.crane,
+      'Posadzka przemysłowa': Icons.layers_rounded,
+      'Ochrona 24h': AppIcons.security,
+      'Plac manewrowy': Icons.local_shipping_rounded,
+      'Parking TIR': AppIcons.parking,
+      'System p.poż': AppIcons.fireSystem,
+      'Duże witryny': Icons.window_rounded,
+      'Wejście główne': Icons.door_sliding_rounded,
+      'Witryna LED': Icons.lightbulb_rounded,
+      'Zaplecze magazynowe': Icons.warehouse_rounded,
+      'Toalety': Icons.wc_rounded,
+      'System alarmowy': Icons.alarm_rounded,
+      'Hala produkcyjna': Icons.factory_rounded,
+      'Transformatornia': AppIcons.transformer,
+      'Biura': Icons.business_rounded,
+      'Socjalne': Icons.meeting_room_rounded,
+      'Plac TIR': AppIcons.parking,
+      'Waga samochodowa': Icons.scale_rounded,
+      'Restauracja': Icons.restaurant_rounded,
+      'Wi-Fi': Icons.wifi_rounded,
+      'Sala konferencyjna': Icons.meeting_room_rounded,
+      'System rezerwacji': Icons.calendar_today_rounded,
+      'Media w granicy': AppIcons.utilities,
+      'MPZP': Icons.map_rounded,
+      'Ogrodzona': Icons.fence_rounded,
+      'Dojazd asfaltowy': Icons.directions_car_rounded,
+      'Teren równy': Icons.terrain_rounded,
+      'KW': Icons.description_rounded,
+      'Bez obciążeń': Icons.check_circle_rounded,
+      'Wszystkie zgody': Icons.fact_check_rounded,
+    };
     
-    if (property.hasBalcony) {
-      amenities.add({'icon': AppIcons.balcony, 'label': 'Balkon'});
+    for (final feature in property.features) {
+      features.add({
+        'icon': featureIconMap[feature] ?? Icons.check_circle_rounded,
+        'label': feature,
+      });
+    }
+    
+    // Add boolean features
+    if (property.hasLoadingDock) {
+      features.add({'icon': AppIcons.loadingDock, 'label': 'Dok załadunkowy'});
     }
     if (property.hasParking) {
-      amenities.add({'icon': AppIcons.parking, 'label': 'Parking'});
+      features.add({'icon': AppIcons.parking, 'label': 'Parking'});
     }
     if (property.hasElevator) {
-      amenities.add({'icon': AppIcons.elevator, 'label': 'Winda'});
+      features.add({'icon': AppIcons.elevator, 'label': 'Winda'});
     }
-    if (property.hasGarden) {
-      amenities.add({'icon': AppIcons.garden, 'label': 'Ogród'});
+    if (property.hasSecurity) {
+      features.add({'icon': AppIcons.security, 'label': 'Ochrona 24h'});
+    }
+    if (property.hasReception) {
+      features.add({'icon': AppIcons.reception, 'label': 'Recepcja'});
     }
     
-    if (amenities.isEmpty) {
+    if (features.isEmpty) {
       return const SizedBox.shrink();
     }
-    
+
+    final grouped = <String, List<Map<String, dynamic>>>{};
+    for (final f in features) {
+      final label = f['label'] as String;
+      final cat = _categoryFor(label);
+      grouped.putIfAbsent(cat, () => []).add(f);
+    }
+    final order = ['security', 'infrastructure', 'office', 'terrain', 'other'];
+    final orderedCategories = order.where((c) => grouped.containsKey(c)).toList();
+
+    final screenWidth = MediaQuery.of(context).size.width;
+    final crossAxisCount = screenWidth < 600 ? 2 : screenWidth < 900 ? 3 : 4;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Wyposażenie',
+          'Wyposażenie i cechy',
           style: AppTextStyles.titleLarge,
         ),
         const SizedBox(height: AppSpacing.md),
-        
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 4,
-            crossAxisSpacing: AppSpacing.md,
-            mainAxisSpacing: AppSpacing.md,
-            childAspectRatio: 1,
+        for (final cat in orderedCategories) ...[
+          Padding(
+            padding: const EdgeInsets.only(
+              left: AppSpacing.sm,
+              bottom: AppSpacing.sm,
+            ),
+            child: Text(
+              _categoryLabels[cat]!,
+              style: AppTextStyles.titleMedium.copyWith(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
-          itemCount: amenities.length,
-          itemBuilder: (context, index) {
-            final amenity = amenities[index];
-            return Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: AppColors.borderLight),
-                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    amenity['icon'] as IconData,
-                    color: AppColors.accent,
-                    size: AppSpacing.iconLg,
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    amenity['label'] as String,
-                    style: AppTextStyles.labelSmall,
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              crossAxisSpacing: AppSpacing.md,
+              mainAxisSpacing: AppSpacing.md,
+              childAspectRatio: 1.2,
+            ),
+            itemCount: grouped[cat]!.length,
+            itemBuilder: (context, index) {
+              final feature = grouped[cat]![index];
+              return Container(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppColors.borderLight),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      feature['icon'] as IconData,
+                      color: AppColors.accent,
+                      size: AppSpacing.iconLg,
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Flexible(
+                      child: Text(
+                        feature['label'] as String,
+                        style: AppTextStyles.labelSmall,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          if (cat != orderedCategories.last) const SizedBox(height: AppSpacing.lg),
+        ],
       ],
     );
   }

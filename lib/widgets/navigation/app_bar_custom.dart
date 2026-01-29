@@ -5,14 +5,21 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/router/app_router.dart';
+import '../../widgets/common/custom_button.dart';
 
 class AppBarCustom extends StatelessWidget implements PreferredSizeWidget {
   final bool showBackButton;
+  /// Gdy ustawiony, wyświetlany zamiast "BC Agencja" (np. tytuł podstrony dashboardu).
+  final String? title;
+  /// Gdy ustawiony przy showBackButton, wywoływany zamiast context.pop() (np. powrót do dashboardu).
+  final VoidCallback? onBackPressed;
   final List<Widget>? actions;
   
   const AppBarCustom({
     super.key,
     this.showBackButton = false,
+    this.title,
+    this.onBackPressed,
     this.actions,
   });
 
@@ -30,7 +37,7 @@ class AppBarCustom extends StatelessWidget implements PreferredSizeWidget {
       leading: showBackButton
           ? IconButton(
               icon: const Icon(AppIcons.arrowBack),
-              onPressed: () => context.pop(),
+              onPressed: onBackPressed ?? () => context.pop(),
             )
           : isMobile
               ? Builder(
@@ -40,20 +47,22 @@ class AppBarCustom extends StatelessWidget implements PreferredSizeWidget {
                   ),
                 )
               : null,
-      title: GestureDetector(
-        onTap: () => context.go(AppRouter.home),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'BC Agencja',
-              style: AppTextStyles.headlineSmall.copyWith(
+      title: title != null
+          ? Text(
+              title!,
+              style: AppTextStyles.titleLarge.copyWith(
                 color: AppColors.white,
               ),
+            )
+          : GestureDetector(
+              onTap: () => context.go(AppRouter.home),
+              child: Text(
+                'BC Agencja',
+                style: AppTextStyles.headlineSmall.copyWith(
+                  color: AppColors.white,
+                ),
+              ),
             ),
-          ],
-        ),
-      ),
       actions: actions ??
           [
             if (!isMobile) ...[
@@ -95,29 +104,20 @@ class AppBarCustom extends StatelessWidget implements PreferredSizeWidget {
               ),
               const SizedBox(width: AppSpacing.sm),
             ],
-            ElevatedButton(
-              onPressed: () => context.go(AppRouter.addListing),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accent,
-                foregroundColor: AppColors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.lg,
-                  vertical: AppSpacing.sm,
-                ),
+            if (isMobile)
+              IconButton(
+                icon: const Icon(AppIcons.add),
+                onPressed: () => context.go(AppRouter.addListing),
+                tooltip: 'Dodaj ogłoszenie',
+              )
+            else
+              CustomButton(
+                label: 'Dodaj ogłoszenie',
+                icon: AppIcons.add,
+                variant: ButtonVariant.gradient,
+                size: ButtonSize.medium,
+                onPressed: () => context.go(AppRouter.addListing),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(AppIcons.add, size: AppSpacing.iconSm),
-                  const SizedBox(width: AppSpacing.xs),
-                  if (!isMobile)
-                    Text(
-                      'Dodaj ogłoszenie',
-                      style: AppTextStyles.buttonMedium,
-                    ),
-                ],
-              ),
-            ),
             const SizedBox(width: AppSpacing.md),
             IconButton(
               icon: const Icon(AppIcons.profile),

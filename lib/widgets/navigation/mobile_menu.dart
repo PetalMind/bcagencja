@@ -5,6 +5,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/router/app_router.dart';
+import '../../widgets/common/custom_button.dart';
 
 class MobileMenu extends StatelessWidget {
   const MobileMenu({super.key});
@@ -63,23 +64,30 @@ class MobileMenu extends StatelessWidget {
                   ),
                   _buildMenuItem(
                     context,
-                    icon: AppIcons.apartment,
-                    title: 'Oferty',
+                    icon: AppIcons.office,
+                    title: 'Oferty komercyjne',
                     onTap: () {
                       context.go(AppRouter.searchResults);
                       Navigator.of(context).pop();
                     },
                   ),
                   const Divider(),
-                  _buildMenuItem(
-                    context,
-                    icon: AppIcons.add,
-                    title: 'Dodaj ogłoszenie',
-                    onTap: () {
-                      context.go(AppRouter.addListing);
-                      Navigator.of(context).pop();
-                    },
-                    highlighted: true,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.sm,
+                    ),
+                    child: CustomButton(
+                      label: 'Dodaj ogłoszenie',
+                      icon: AppIcons.add,
+                      variant: ButtonVariant.gradient,
+                      size: ButtonSize.medium,
+                      fullWidth: true,
+                      onPressed: () {
+                        context.go(AppRouter.addListing);
+                        Navigator.of(context).pop();
+                      },
+                    ),
                   ),
                   const Divider(),
                   _buildMenuItem(

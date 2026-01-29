@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../widgets/navigation/app_bar_custom.dart';
 import '../../widgets/property/mobile_contact_bar.dart';
 import '../../core/theme/app_colors.dart';
@@ -6,8 +7,10 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_icons.dart';
 import '../../core/state/models/property_model.dart';
+import '../../core/router/app_router.dart';
 import 'widgets/property_gallery.dart';
 import 'widgets/property_info_panel.dart';
+import 'widgets/contact_form.dart';
 import 'widgets/property_description.dart';
 import 'widgets/property_parameters.dart';
 import 'widgets/property_amenities.dart';
@@ -31,33 +34,91 @@ class PropertyDetailPage extends StatelessWidget {
     // Get property data - in real app this would come from API/state management
     final property = _getPropertyById(propertyId);
     
+    final isDesktop = !isMobile && !isTablet;
+
     return Scaffold(
       appBar: const AppBarCustom(showBackButton: true),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Main content
-            Container(
-              constraints: const BoxConstraints(
-                maxWidth: AppSpacing.containerMaxWidth,
-              ),
-              margin: EdgeInsets.symmetric(
-                horizontal: isMobile ? 0 : AppSpacing.xl,
-              ),
+      body: isDesktop
+          ? _buildDesktopBody(context, property)
+          : SingleChildScrollView(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Breadcrumbs
-                  if (!isMobile) _buildBreadcrumbs(property),
-                  
-                  const SizedBox(height: AppSpacing.lg),
-                  
-                  // Title and location
-                  Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isMobile ? AppSpacing.md : 0,
-                    ),
-                    child: Column(
+                  _buildContentContainer(
+                    context,
+                    property: property,
+                    isMobile: isMobile,
+                    includePanelInFlow: true,
+                  ),
+                ],
+              ),
+            ),
+      bottomNavigationBar: isMobile
+          ? MobileContactBar(
+              price: property.formattedPrice,
+              phone: property.ownerPhone,
+              onMessageTap: () => _openContactSheet(context),
+            )
+          : null,
+    );
+  }
+
+  Widget _buildDesktopBody(BuildContext context, Property property) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 6,
+          child: SingleChildScrollView(
+            child: _buildContentContainer(
+              context,
+              property: property,
+              isMobile: false,
+              includePanelInFlow: false,
+            ),
+          ),
+        ),
+        SizedBox(
+          width: 400,
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.only(
+                top: AppSpacing.lg,
+                left: AppSpacing.md,
+                right: AppSpacing.xl,
+                bottom: AppSpacing.xxl,
+              ),
+              child: PropertyInfoPanel(property: property),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildContentContainer(
+    BuildContext context,
+    {required Property property,
+    required bool isMobile,
+    required bool includePanelInFlow}) {
+    return Container(
+      constraints: const BoxConstraints(
+        maxWidth: AppSpacing.containerMaxWidth,
+      ),
+      margin: EdgeInsets.symmetric(
+        horizontal: isMobile ? 0 : AppSpacing.xl,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Breadcrumbs
+          if (!isMobile) _buildBreadcrumbs(context, property),
+          const SizedBox(height: AppSpacing.lg),
+          // Title and location
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: isMobile ? AppSpacing.md : 0,
+            ),
+            child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
@@ -164,13 +225,14 @@ class PropertyDetailPage extends StatelessWidget {
                   ),
                   
                   const SizedBox(height: AppSpacing.xl),
-                  
-                  // Gallery and info panel
-                  if (isMobile || isTablet)
-                    _buildMobileLayout(property)
+                  // Gallery (and panel on mobile/tablet when in flow)
+                  if (includePanelInFlow)
+                    _buildMobileLayout(context, property)
                   else
-                    _buildDesktopLayout(property),
-                  
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 0),
+                      child: PropertyGallery(images: property.images),
+                    ),
                   const SizedBox(height: AppSpacing.xxl),
                   
                   // Description
@@ -217,46 +279,40 @@ class PropertyDetailPage extends StatelessWidget {
                   const SizedBox(height: AppSpacing.xxl),
                   
                   // Similar listings
-                  SimilarListings(propertyId: propertyId),
-                  
+                  SimilarListings(propertyId: property.id),
                   const SizedBox(height: AppSpacing.xxl),
                 ],
               ),
-            ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: isMobile
-          ? MobileContactBar(
-              price: property.formattedPrice,
-              phone: property.ownerPhone,
-              onMessageTap: () {
-                // Show contact form
-              },
-            )
-          : null,
-    );
+            );
   }
-  
-  Widget _buildBreadcrumbs(Property property) {
+
+  Widget _buildBreadcrumbs(BuildContext context, Property property) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
       child: Row(
         children: [
-          Text(
-            'Strona główna',
-            style: AppTextStyles.bodySmall.copyWith(
-              color: AppColors.textSecondary,
+          GestureDetector(
+            onTap: () => context.go(AppRouter.home),
+            child: Text(
+              'Strona główna',
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+                decoration: TextDecoration.underline,
+              ),
             ),
           ),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: AppSpacing.xs),
             child: Icon(Icons.chevron_right, size: 16, color: AppColors.grey400),
           ),
-          Text(
-            'Wyszukiwanie',
-            style: AppTextStyles.bodySmall.copyWith(
-              color: AppColors.textSecondary,
+          GestureDetector(
+            onTap: () => context.go(AppRouter.searchResults),
+            child: Text(
+              'Wyszukiwanie',
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+                decoration: TextDecoration.underline,
+              ),
             ),
           ),
           const Padding(
@@ -288,39 +344,62 @@ class PropertyDetailPage extends StatelessWidget {
     );
   }
   
-  Widget _buildDesktopLayout(Property property) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Gallery (left side, 60%)
-          Expanded(
-            flex: 6,
-            child: PropertyGallery(images: property.images),
-          ),
-          
-          const SizedBox(width: AppSpacing.xl),
-          
-          // Info panel (right side, 40%)
-          SizedBox(
-            width: 400,
-            child: PropertyInfoPanel(property: property),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildMobileLayout(Property property) {
+  Widget _buildMobileLayout(BuildContext context, Property property) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       child: Column(
         children: [
           PropertyGallery(images: property.images),
           const SizedBox(height: AppSpacing.xl),
-          PropertyInfoPanel(property: property),
+          PropertyInfoPanel(
+            property: property,
+            onRequestContact: () => _openContactSheet(context),
+          ),
         ],
+      ),
+    );
+  }
+
+  void _openContactSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (_, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusLg)),
+          ),
+          child: ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.xxxl),
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Zapytaj o ofertę',
+                    style: AppTextStyles.titleLarge,
+                  ),
+                  IconButton(
+                    icon: const Icon(AppIcons.close),
+                    onPressed: () => Navigator.of(ctx).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+              ContactForm(
+                compact: true,
+                onSuccess: () => Navigator.of(ctx).pop(),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -378,27 +457,27 @@ class PropertyDetailPage extends StatelessWidget {
         
         // Location details
         Text(
-          'O okolicy',
+          'Lokalizacja biznesowa',
           style: AppTextStyles.titleMedium,
         ),
         const SizedBox(height: AppSpacing.sm),
         Text(
-          'Nieruchomość znajduje się w doskonałej lokalizacji w ${property.district}, w pobliżu centrum ${property.city}. W okolicy znajdują się liczne sklepy, restauracje, szkoły oraz doskonale rozwinięta komunikacja miejska.',
+          _getLocationDescription(property),
           style: AppTextStyles.bodyMedium,
         ),
         
         const SizedBox(height: AppSpacing.lg),
         
-        // Nearby points
+        // Nearby points / Access
         Text(
-          'W pobliżu',
+          'Dostęp i infrastruktura',
           style: AppTextStyles.titleMedium,
         ),
         const SizedBox(height: AppSpacing.sm),
-        _buildNearbyPoint('Metro / Przystanek', '300 m', AppIcons.directions),
-        _buildNearbyPoint('Szkoła podstawowa', '500 m', Icons.school_rounded),
-        _buildNearbyPoint('Centrum handlowe', '1 km', Icons.shopping_cart_rounded),
-        _buildNearbyPoint('Park', '400 m', AppIcons.garden),
+        _buildNearbyPoint('Węzeł autostradowy', '3 km', AppIcons.directions),
+        _buildNearbyPoint('Port lotniczy', '15 km', Icons.flight_rounded),
+        _buildNearbyPoint('Stacja kolejowa', '5 km', Icons.train_rounded),
+        _buildNearbyPoint('Centrum biznesowe', '2 km', Icons.business_rounded),
       ],
     );
   }
@@ -438,6 +517,25 @@ class PropertyDetailPage extends StatelessWidget {
       return '${(difference.inDays / 7).floor()} tyg. temu';
     } else {
       return '${date.day}.${date.month}.${date.year}';
+    }
+  }
+  
+  String _getLocationDescription(Property property) {
+    switch (property.propertyType) {
+      case 'office':
+        return 'Nieruchomość położona w prestiżowej dzielnicy biznesowej ${property.district}, ${property.city}. Doskonała lokalizacja w centrum aktywności gospodarczej z rozwiniętą infrastrukturą. Bezpośredni dostęp do węzłów komunikacyjnych - metro, liczne linie autobusowe. W okolicy znajdują się biura międzynarodowych korporacji, hotele biznesowe, restauracje i centra konferencyjne. Idealna lokalizacja dla firm poszukujących prestiżowej siedziby.';
+      case 'warehouse':
+        return 'Obiekt strategicznie usytuowany przy głównych arteriach komunikacyjnych w ${property.district}, ${property.city}. Doskonały dojazd drogami krajowymi i autostradą. W pobliżu węzły logistyczne i centra dystrybucyjne. Lokalizacja zapewnia efektywny transport i dostęp do kluczowych rynków zbytu. Pełna infrastruktura techniczna, tereny przemysłowe w sąsiedztwie.';
+      case 'retail':
+        return 'Nieruchomość w centrum handlowym ${property.city}, ${property.district}. Lokalizacja o wysokim natężeniu ruchu pieszego i samochodowego. Otoczenie biurowców, obiektów usługowych i mieszkalnych zapewnia stały ruch klientów. Doskonała widoczność i dostępność komunikacyjna. Idealne dla retailu premium, gastronomii i usług.';
+      case 'industrial':
+        return 'Kompleks przemysłowy położony w strefie przemysłowej ${property.district}, ${property.city}. Doskonały dojazd dla transportu ciężkiego, bliskość autostrady i linii kolejowych. Pełna infrastruktura techniczna - energia, gaz, woda. Otoczenie obiektów produkcyjnych i logistycznych. Idealna lokalizacja dla działalności przemysłowej i magazynowej.';
+      case 'hotel':
+        return 'Obiekt hotelarski w atrakcyjnej lokalizacji w ${property.district}, ${property.city}. Bliskość centrum miasta, zabytków i atrakcji turystycznych. Doskonała dostępność komunikacyjna - lotnisko, dworzec, metro. Otoczenie biznesowe z centrami konferencyjnymi i biurami. Wysoki potencjał inwestycyjny w segmencie hotelarskim.';
+      case 'land':
+        return 'Działka inwestycyjna w dynamicznie rozwijającej się dzielnicy ${property.district}, ${property.city}. Przeznaczenie w MPZP pozwalające na zabudowę komercyjną. Wszystkie media w granicy działki. Doskonała lokalizacja z perspektywą rozwoju - w pobliżu nowe osiedla mieszkaniowe i obiekty komercyjne. Wysoki potencjał wzrostu wartości.';
+      default:
+        return 'Nieruchomość komercyjna w lokalizacji ${property.district}, ${property.city}. Dobry dostęp komunikacyjny i rozwinięta infrastruktura. Perspektywiczna lokalizacja inwestycyjna.';
     }
   }
   

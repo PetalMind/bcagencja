@@ -5,6 +5,7 @@ import '../../features/search/search_page.dart';
 import '../../features/listings/listings_results_page.dart';
 import '../../features/property/property_detail_page.dart';
 import '../../features/add_listing/add_listing_page.dart';
+import '../../features/add_listing/add_listing_success_page.dart';
 import '../../features/dashboard/dashboard_page.dart';
 import '../../features/dashboard/pages/my_listings_page.dart';
 import '../../features/dashboard/pages/favorites_page.dart';
@@ -15,6 +16,7 @@ import '../../features/dashboard/pages/settings_page.dart';
 import '../../features/about/about_page.dart';
 import '../../features/blog/blog_page.dart';
 import '../../features/contact/contact_page.dart';
+import '../../widgets/common/button_showcase.dart';
 
 /// Application router configuration
 class AppRouter {
@@ -24,6 +26,7 @@ class AppRouter {
   static const String searchResults = '/search/results';
   static const String propertyDetail = '/property/:id';
   static const String addListing = '/add-listing';
+  static const String addListingSuccess = '/add-listing/success';
   static const String dashboard = '/dashboard';
   static const String dashboardListings = '/dashboard/listings';
   static const String dashboardFavorites = '/dashboard/favorites';
@@ -34,6 +37,7 @@ class AppRouter {
   static const String about = '/about';
   static const String blog = '/blog';
   static const String contact = '/contact';
+  static const String buttonShowcase = '/showcase/buttons';
   
   /// Router configuration
   static final GoRouter router = GoRouter(
@@ -79,6 +83,13 @@ class AppRouter {
         path: addListing,
         name: 'addListing',
         builder: (context, state) => const AddListingPage(),
+        routes: [
+          GoRoute(
+            path: 'success',
+            name: 'addListingSuccess',
+            builder: (context, state) => const AddListingSuccessPage(),
+          ),
+        ],
       ),
       
       // Dashboard routes
@@ -140,6 +151,13 @@ class AppRouter {
         path: contact,
         name: 'contact',
         builder: (context, state) => const ContactPage(),
+      ),
+      
+      // Button Showcase (for development)
+      GoRoute(
+        path: buttonShowcase,
+        name: 'buttonShowcase',
+        builder: (context, state) => const ButtonShowcase(),
       ),
     ],
     

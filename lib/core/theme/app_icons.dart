@@ -13,34 +13,48 @@ class AppIcons {
   static const IconData close = Icons.close_rounded;
   static const IconData arrowBack = Icons.arrow_back_rounded;
   static const IconData arrowForward = Icons.arrow_forward_rounded;
+  static const IconData chevronLeft = Icons.chevron_left_rounded;
+  static const IconData chevronRight = Icons.chevron_right_rounded;
   
-  // Property types
-  static const IconData apartment = Icons.apartment_rounded;
-  static const IconData house = Icons.house_rounded;
+  // Property types (Commercial)
+  static const IconData office = Icons.business_rounded;
+  static const IconData warehouse = Icons.warehouse_rounded;
+  static const IconData retail = Icons.storefront_rounded;
+  static const IconData industrial = Icons.factory_rounded;
+  static const IconData hotel = Icons.hotel_rounded;
   static const IconData land = Icons.landscape_rounded;
-  static const IconData commercial = Icons.store_rounded;
   
-  // Property details
+  // Property details (Commercial)
   static const IconData area = Icons.square_foot_rounded;
-  static const IconData rooms = Icons.bed_rounded;
-  static const IconData floor = Icons.layers_rounded;
-  static const IconData bathroom = Icons.bathtub_rounded;
+  static const IconData rooms = Icons.meeting_room_rounded; // For backward compatibility
+  static const IconData floors = Icons.layers_rounded;
+  static const IconData parkingSpaces = Icons.local_parking_rounded;
+  static const IconData ceilingHeight = Icons.height_rounded;
+  static const IconData plotArea = Icons.terrain_rounded;
   
-  // Amenities
-  static const IconData balcony = Icons.balcony_rounded;
+  // Commercial features
+  static const IconData loadingDock = Icons.local_shipping_rounded;
   static const IconData parking = Icons.local_parking_rounded;
   static const IconData elevator = Icons.elevator_rounded;
+  static const IconData security = Icons.security_rounded;
+  static const IconData reception = Icons.support_agent_rounded;
+  static const IconData monitoring = Icons.videocam_rounded;
+  static const IconData accessControl = Icons.lock_rounded;
   static const IconData airConditioning = Icons.ac_unit_rounded;
-  static const IconData heating = Icons.local_fire_department_rounded;
-  static const IconData garden = Icons.yard_rounded;
-  static const IconData garage = Icons.garage_rounded;
-  static const IconData pool = Icons.pool_rounded;
+  static const IconData bms = Icons.settings_input_component_rounded;
+  static const IconData crane = Icons.precision_manufacturing_rounded;
+  static const IconData fireSystem = Icons.fire_extinguisher_rounded;
+  static const IconData transformer = Icons.electrical_services_rounded;
+  static const IconData utilities = Icons.construction_rounded;
   
   // Location
   static const IconData location = Icons.location_on_rounded;
   static const IconData map = Icons.map_rounded;
   static const IconData directions = Icons.directions_rounded;
   
+  // Price / Commerce
+  static const IconData price = Icons.sell_rounded;
+
   // Contact
   static const IconData phone = Icons.phone_rounded;
   static const IconData email = Icons.email_rounded;

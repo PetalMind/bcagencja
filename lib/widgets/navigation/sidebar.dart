@@ -58,7 +58,7 @@ class Sidebar extends StatelessWidget {
               children: [
                 _buildMenuItem(
                   context,
-                  icon: AppIcons.apartment,
+                  icon: AppIcons.office,
                   title: 'Moje ogłoszenia',
                   route: AppRouter.dashboardListings,
                 ),

@@ -4,12 +4,15 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_icons.dart';
+import '../../widgets/common/custom_button.dart';
 
+/// Dolny pasek na mobile: cena + CTA (Zadzwoń, Napisz).
+/// Mobile-first: duża cena, przyciski CustomButton, SafeArea.
 class MobileContactBar extends StatelessWidget {
   final String price;
   final String? phone;
   final VoidCallback? onMessageTap;
-  
+
   const MobileContactBar({
     super.key,
     required this.price,
@@ -27,13 +30,19 @@ class MobileContactBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.md,
+        AppSpacing.lg,
+        AppSpacing.md,
+      ),
       decoration: BoxDecoration(
         color: AppColors.white,
+        border: Border(top: BorderSide(color: AppColors.borderLight)),
         boxShadow: [
           BoxShadow(
-            color: AppColors.black.withOpacity(0.1),
-            blurRadius: 10,
+            color: AppColors.black.withOpacity(0.06),
+            blurRadius: 8,
             offset: const Offset(0, -2),
           ),
         ],
@@ -41,6 +50,7 @@ class MobileContactBar extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Expanded(
               child: Column(
@@ -51,29 +61,31 @@ class MobileContactBar extends StatelessWidget {
                     'Cena',
                     style: AppTextStyles.caption,
                   ),
+                  const SizedBox(height: AppSpacing.xs),
                   Text(
                     price,
-                    style: AppTextStyles.priceMedium,
+                    style: AppTextStyles.priceMedium.copyWith(fontSize: 22),
                   ),
                 ],
               ),
             ),
             if (phone != null) ...[
-              ElevatedButton.icon(
+              CustomButton(
+                label: 'Zadzwoń',
+                icon: AppIcons.phone,
                 onPressed: () => _makePhoneCall(phone!),
-                icon: const Icon(AppIcons.phone),
-                label: const Text('Zadzwoń'),
+                variant: ButtonVariant.outlined,
+                size: ButtonSize.small,
               ),
               const SizedBox(width: AppSpacing.sm),
             ],
             if (onMessageTap != null)
-              ElevatedButton.icon(
+              CustomButton(
+                label: 'Napisz',
+                icon: AppIcons.message,
                 onPressed: onMessageTap,
-                icon: const Icon(AppIcons.message),
-                label: const Text('Napisz'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryDark,
-                ),
+                variant: ButtonVariant.primary,
+                size: ButtonSize.small,
               ),
           ],
         ),

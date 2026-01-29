@@ -96,13 +96,15 @@ class _AdvancedFiltersPanelState extends State<AdvancedFiltersPanel> {
                   ),
                 ),
                 
-                // Price filter
+                // Price filter (ceny komercyjne w milionach)
                 FilterAccordion(
-                  title: 'Cena',
-                  icon: Icons.monetization_on_rounded,
+                  title: 'Cena (zł)',
+                  icon: AppIcons.price,
                   child: PriceRangeSlider(
                     min: _filters.minPrice ?? 0,
-                    max: _filters.maxPrice ?? 2000000,
+                    max: _filters.maxPrice ?? 5000000,
+                    minLimit: 0,
+                    maxLimit: 50000000,
                     onChanged: (min, max) {
                       _updateFilters(_filters.copyWith(
                         minPrice: min,
@@ -112,10 +114,10 @@ class _AdvancedFiltersPanelState extends State<AdvancedFiltersPanel> {
                   ),
                 ),
                 
-                // Basic parameters
+                // Powierzchnia (użytkowa + działka)
                 FilterAccordion(
-                  title: 'Parametry podstawowe',
-                  icon: AppIcons.apartment,
+                  title: 'Powierzchnia (m²)',
+                  icon: AppIcons.area,
                   child: Column(
                     children: [
                       Row(
@@ -123,54 +125,97 @@ class _AdvancedFiltersPanelState extends State<AdvancedFiltersPanel> {
                           Expanded(
                             child: TextField(
                               decoration: const InputDecoration(
-                                labelText: 'Min. powierzchnia',
+                                labelText: 'Min. pow. użytkowa',
                               ),
                               keyboardType: TextInputType.number,
+                              onChanged: (v) =>
+                                  _updateFilters(_filters.copyWith(minArea: double.tryParse(v))),
                             ),
                           ),
                           const SizedBox(width: AppSpacing.sm),
                           Expanded(
                             child: TextField(
                               decoration: const InputDecoration(
-                                labelText: 'Max. powierzchnia',
+                                labelText: 'Max. pow. użytkowa',
                               ),
                               keyboardType: TextInputType.number,
+                              onChanged: (v) =>
+                                  _updateFilters(_filters.copyWith(maxArea: double.tryParse(v))),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              decoration: const InputDecoration(
+                                labelText: 'Min. pow. działki',
+                              ),
+                              keyboardType: TextInputType.number,
+                              onChanged: (v) =>
+                                  _updateFilters(_filters.copyWith(minPlotArea: double.tryParse(v))),
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: TextField(
+                              decoration: const InputDecoration(
+                                labelText: 'Max. pow. działki',
+                              ),
+                              keyboardType: TextInputType.number,
+                              onChanged: (v) =>
+                                  _updateFilters(_filters.copyWith(maxPlotArea: double.tryParse(v))),
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: AppSpacing.md),
-                      DropdownButtonFormField<int>(
+                      DropdownButtonFormField<String>(
                         decoration: const InputDecoration(
-                          labelText: 'Liczba pokoi',
+                          labelText: 'Typ nieruchomości',
                         ),
-                        items: List.generate(10, (i) => i + 1).map((rooms) {
-                          return DropdownMenuItem(
-                            value: rooms,
-                            child: Text('$rooms pokoi'),
-                          );
-                        }).toList(),
+                        value: _filters.propertyType,
+                        items: const [
+                          DropdownMenuItem(value: null, child: Text('Dowolny')),
+                          DropdownMenuItem(value: 'office', child: Text('Budynki biurowe')),
+                          DropdownMenuItem(value: 'warehouse', child: Text('Magazyny')),
+                          DropdownMenuItem(value: 'retail', child: Text('Lokale handlowe')),
+                          DropdownMenuItem(value: 'industrial', child: Text('Tereny / Hale przemysłowe')),
+                          DropdownMenuItem(value: 'hotel', child: Text('Hotele i obiekty')),
+                          DropdownMenuItem(value: 'land', child: Text('Działki inwestycyjne')),
+                        ],
                         onChanged: (value) {
-                          _updateFilters(_filters.copyWith(minRooms: value));
+                          _updateFilters(_filters.copyWith(propertyType: value));
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      DropdownButtonFormField<String>(
+                        decoration: const InputDecoration(
+                          labelText: 'Status oferty',
+                        ),
+                        value: _filters.listingStatus,
+                        items: const [
+                          DropdownMenuItem(value: null, child: Text('Wszystkie')),
+                          DropdownMenuItem(value: 'for_sale', child: Text('Na sprzedaż')),
+                          DropdownMenuItem(value: 'in_negotiation', child: Text('W negocjacji')),
+                          DropdownMenuItem(value: 'sold', child: Text('Sprzedane')),
+                        ],
+                        onChanged: (value) {
+                          _updateFilters(_filters.copyWith(listingStatus: value));
                         },
                       ),
                     ],
                   ),
                 ),
                 
-                // Amenities
+                // Wyposażenie (komercyjne)
                 FilterAccordion(
                   title: 'Wyposażenie',
-                  icon: Icons.checkroom_rounded,
+                  icon: AppIcons.parking,
                   child: Column(
                     children: [
-                      CheckboxListTile(
-                        title: const Text('Balkon'),
-                        value: _filters.hasBalcony ?? false,
-                        onChanged: (value) {
-                          _updateFilters(_filters.copyWith(hasBalcony: value));
-                        },
-                      ),
                       CheckboxListTile(
                         title: const Text('Parking'),
                         value: _filters.hasParking ?? false,
@@ -183,6 +228,27 @@ class _AdvancedFiltersPanelState extends State<AdvancedFiltersPanel> {
                         value: _filters.hasElevator ?? false,
                         onChanged: (value) {
                           _updateFilters(_filters.copyWith(hasElevator: value));
+                        },
+                      ),
+                      CheckboxListTile(
+                        title: const Text('Rampa / Doki załadunkowe'),
+                        value: _filters.hasLoadingDock ?? false,
+                        onChanged: (value) {
+                          _updateFilters(_filters.copyWith(hasLoadingDock: value));
+                        },
+                      ),
+                      CheckboxListTile(
+                        title: const Text('Ochrona 24h'),
+                        value: _filters.hasSecurity ?? false,
+                        onChanged: (value) {
+                          _updateFilters(_filters.copyWith(hasSecurity: value));
+                        },
+                      ),
+                      CheckboxListTile(
+                        title: const Text('Recepcja'),
+                        value: _filters.hasReception ?? false,
+                        onChanged: (value) {
+                          _updateFilters(_filters.copyWith(hasReception: value));
                         },
                       ),
                     ],
