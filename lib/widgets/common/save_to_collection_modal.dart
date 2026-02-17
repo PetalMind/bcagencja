@@ -99,6 +99,7 @@ class _SaveToCollectionSheetState extends ConsumerState<_SaveToCollectionSheet> 
         notifyPriceChange: _notifyPriceChange,
         notifyNewDocs: _notifyNewDocs,
         notifyOthersView: _notifyOthersView,
+        ownerId: widget.property.ownerId,
       );
     }
     if (mounted) {

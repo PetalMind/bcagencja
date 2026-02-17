@@ -7,81 +7,100 @@ import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_icons.dart';
 import '../../core/auth/role_permissions.dart';
+import '../../core/config/app_config.dart';
 import '../../core/router/app_router.dart';
 import '../../core/state/providers/auth_provider.dart';
 import '../../core/state/providers/favorites_provider.dart';
-
-/// Minimalny rozmiar obszaru dotyku (Material / Apple HIG)
-const double _kMinTouchTarget = 48.0;
+import '../../core/state/providers/dashboard_providers.dart';
+import 'dashboard_strings.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
 
-  static List<_DashboardSection> _sectionsForRole(UserRoleLevel role, int favoritesCount) {
+  static List<_DashboardSection> _sectionsForRole(
+    UserRoleLevel role,
+    int favoritesCount,
+    int listingsCount,
+    int mySubmissionsCount,
+    int alertsCount,
+    int messagesCount,
+  ) {
     final hasPartner = RolePermissions.hasPartnerDashboard(role);
     final isAdmin = RolePermissions.hasAdminDashboard(role);
     return [
       if (hasPartner)
-        const _DashboardSection(
-          title: 'Moje ogłoszenia',
-          value: '5',
+        _DashboardSection(
+          title: DashboardStrings.sectionMyListings,
+          value: '$listingsCount',
           icon: AppIcons.office,
           route: AppRouter.dashboardListings,
         )
       else
         _DashboardSection(
-          title: 'Zapisane oferty',
+          title: DashboardStrings.sectionFavorites,
           value: '$favoritesCount',
           icon: AppIcons.favorites,
           route: AppRouter.dashboardFavorites,
         ),
       if (hasPartner)
         _DashboardSection(
-          title: 'Ulubione',
+          title: DashboardStrings.sectionFavoritesAlt,
           value: '$favoritesCount',
           icon: AppIcons.favorites,
           route: AppRouter.dashboardFavorites,
         ),
-      const _DashboardSection(
-        title: 'Zapisane wyszukiwania',
-        value: '2',
+      _DashboardSection(
+        title: DashboardStrings.sectionMySubmissions,
+        value: mySubmissionsCount > 0 ? '$mySubmissionsCount' : '',
+        icon: Icons.real_estate_agent_outlined,
+        route: AppRouter.dashboardMySubmissions,
+      ),
+      _DashboardSection(
+        title: DashboardStrings.sectionAlerts,
+        value: '$alertsCount',
         icon: AppIcons.notifications,
         route: AppRouter.dashboardAlerts,
       ),
-      const _DashboardSection(
-        title: 'Wiadomości',
-        value: '2',
+      _DashboardSection(
+        title: DashboardStrings.sectionMessages,
+        value: '$messagesCount',
         icon: AppIcons.message,
         route: AppRouter.dashboardMessages,
       ),
       if (hasPartner)
         const _DashboardSection(
-          title: 'Statystyki',
-          value: '—',
+          title: DashboardStrings.sectionStatistics,
+          value: DashboardStrings.valueDash,
           icon: AppIcons.statistics,
           route: AppRouter.dashboardStatistics,
         ),
       const _DashboardSection(
-        title: 'Ustawienia',
+        title: DashboardStrings.sectionSettings,
         value: '',
         icon: AppIcons.settings,
         route: AppRouter.dashboardSettings,
       ),
       if (isAdmin) ...[
         const _DashboardSection(
-          title: 'Oczekujące (Chcę sprzedać)',
+          title: DashboardStrings.sectionAdminOverview,
+          value: '',
+          icon: Icons.dashboard_outlined,
+          route: AppRouter.dashboardAdminOverview,
+        ),
+        const _DashboardSection(
+          title: DashboardStrings.sectionAdminSubmissions,
           value: '',
           icon: Icons.real_estate_agent_outlined,
           route: AppRouter.dashboardAdminSubmissions,
         ),
         const _DashboardSection(
-          title: 'Użytkownicy',
+          title: DashboardStrings.sectionAdminUsers,
           value: '',
           icon: Icons.admin_panel_settings,
           route: AppRouter.dashboardAdminUsers,
         ),
         const _DashboardSection(
-          title: 'Logi systemowe',
+          title: DashboardStrings.sectionAdminLogs,
           value: '',
           icon: Icons.history,
           route: AppRouter.dashboardAdminLogs,
@@ -106,7 +125,23 @@ class DashboardPage extends ConsumerWidget {
     final roleLevel = user?.effectiveRoleLevel ?? UserRoleLevel.guest;
     final hasPartner = RolePermissions.hasPartnerDashboard(roleLevel);
     final isInvestor = RolePermissions.hasInvestorDashboard(roleLevel);
-    final sections = _sectionsForRole(roleLevel, favoritesCount);
+    final listingsCount = ref.watch(partnerListingsCountProvider);
+    final mySubmissionsCount = ref.watch(mySubmissionsCountProvider).valueOrNull ?? 0;
+    final alertsCount = ref.watch(dashboardAlertsCountProvider);
+    final messagesCount = ref.watch(dashboardMessagesCountProvider);
+    final sections = _sectionsForRole(
+      roleLevel,
+      favoritesCount,
+      listingsCount,
+      mySubmissionsCount,
+      alertsCount,
+      messagesCount,
+    );
+    final newListingsItems = ref.watch(newListingsPreviewProvider);
+    final messagesItems = ref.watch(messagesPreviewProvider);
+    final recentlyViewedItems =
+        ref.watch(recentlyViewedPreviewProvider).valueOrNull ?? [];
+    final userCriteriaItems = ref.watch(userCriteriaPreviewProvider);
 
     final contentPadding = isMobile
         ? const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.md)
@@ -136,6 +171,12 @@ class DashboardPage extends ConsumerWidget {
                   showVdrCta: showVdrCta,
                   showNdaBanner: user?.shouldShowNdaBanner ?? false,
                   favoritesCount: favoritesCount,
+                  newListingsItems: newListingsItems,
+                  newListingsCount: newListingsItems.length,
+                  messagesItems: messagesItems,
+                  messagesCount: messagesItems.length,
+                  recentlyViewedItems: recentlyViewedItems,
+                  userCriteriaItems: userCriteriaItems,
                 )
               : _DefaultDashboardContent(
                   isMobile: isMobile,
@@ -159,6 +200,12 @@ class _InvestorDashboardContent extends StatelessWidget {
     required this.showVdrCta,
     required this.showNdaBanner,
     required this.favoritesCount,
+    required this.newListingsItems,
+    required this.newListingsCount,
+    required this.messagesItems,
+    required this.messagesCount,
+    required this.recentlyViewedItems,
+    required this.userCriteriaItems,
   });
 
   final bool isMobile;
@@ -167,12 +214,19 @@ class _InvestorDashboardContent extends StatelessWidget {
   final bool showVdrCta;
   final bool showNdaBanner;
   final int favoritesCount;
+  final List<String> newListingsItems;
+  final int newListingsCount;
+  final List<String> messagesItems;
+  final int messagesCount;
+  final List<RecentlyViewedItem> recentlyViewedItems;
+  final List<String> userCriteriaItems;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final useTwoColumns = !isMobile && constraints.maxWidth > 800;
+        final useTwoColumns = !isMobile &&
+            constraints.maxWidth > AppSpacing.dashboardTwoColumnMinWidth;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -195,12 +249,23 @@ class _InvestorDashboardContent extends StatelessWidget {
                   children: [
                     Expanded(
                       flex: 6,
-                      child: _InvestorQuickActions(isMobile: isMobile, favoritesCount: favoritesCount),
+                      child: _InvestorQuickActions(
+                        isMobile: isMobile,
+                        favoritesCount: favoritesCount,
+                        newListingsItems: newListingsItems,
+                        newListingsCount: newListingsCount,
+                        messagesItems: messagesItems,
+                        messagesCount: messagesCount,
+                      ),
                     ),
                     const SizedBox(width: AppSpacing.xl),
                     SizedBox(
-                      width: 320,
-                      child: _InvestorSidebar(showVdrCta: showVdrCta),
+                      width: AppSpacing.dashboardSidebarWidth,
+                      child: _InvestorSidebar(
+                        showVdrCta: showVdrCta,
+                        recentlyViewedItems: recentlyViewedItems,
+                        userCriteriaItems: userCriteriaItems,
+                      ),
                     ),
                   ],
                 ),
@@ -209,7 +274,14 @@ class _InvestorDashboardContent extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _InvestorQuickActions(isMobile: isMobile, favoritesCount: favoritesCount),
+                  _InvestorQuickActions(
+                    isMobile: isMobile,
+                    favoritesCount: favoritesCount,
+                    newListingsItems: newListingsItems,
+                    newListingsCount: newListingsCount,
+                    messagesItems: messagesItems,
+                    messagesCount: messagesCount,
+                  ),
                   if (showVdrCta) ...[
                     const SizedBox(height: AppSpacing.lg),
                     _VdrCtaCard(isMobile: isMobile),
@@ -227,55 +299,58 @@ class _InvestorQuickActions extends StatelessWidget {
   const _InvestorQuickActions({
     required this.isMobile,
     required this.favoritesCount,
+    required this.newListingsItems,
+    required this.newListingsCount,
+    required this.messagesItems,
+    required this.messagesCount,
   });
 
   final bool isMobile;
   final int favoritesCount;
+  final List<String> newListingsItems;
+  final int newListingsCount;
+  final List<String> messagesItems;
+  final int messagesCount;
 
   @override
   Widget build(BuildContext context) {
+    final favoritesItems = favoritesCount > 0
+        ? ['$favoritesCount ${DashboardStrings.favoritesCountLabel}']
+        : [DashboardStrings.emptyFavorites];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _QuickActionCard(
-          title: 'Nowe oferty',
-          count: 3,
+          title: DashboardStrings.cardNewListings,
+          count: newListingsCount,
           icon: Icons.local_fire_department_rounded,
           iconColor: AppColors.ctaHighlight,
-          items: const [
-            'Biedronka Poznań – 8.2% ROI',
-            'Grunt Wrocław – MPZP zatw.',
-            'Lidl Gdańsk – Long lease',
-          ],
-          actionLabel: 'Zobacz wszystkie',
+          items: newListingsItems.isEmpty
+              ? [DashboardStrings.emptyNewListings(AppConfig.newListingsMaxAgeDays)]
+              : newListingsItems,
+          actionLabel: DashboardStrings.actionSeeAll,
           route: AppRouter.oferty,
           isMobile: isMobile,
         ),
         const SizedBox(height: AppSpacing.md),
         _QuickActionCard(
-          title: 'Zapisane oferty',
+          title: DashboardStrings.cardSavedListings,
           count: favoritesCount,
           icon: AppIcons.favorites,
           iconColor: AppColors.accent,
-          items: [
-            if (favoritesCount > 0) '$favoritesCount ofert w ulubionych',
-            if (favoritesCount == 0) 'Brak zapisanych ofert',
-          ],
-          actionLabel: 'Zarządzaj',
+          items: favoritesItems,
+          actionLabel: DashboardStrings.actionManage,
           route: AppRouter.dashboardFavorites,
           isMobile: isMobile,
         ),
         const SizedBox(height: AppSpacing.md),
         _QuickActionCard(
-          title: 'Wiadomości',
-          count: 2,
+          title: DashboardStrings.cardMessages,
+          count: messagesCount,
           icon: Icons.chat_bubble_outline_rounded,
           iconColor: AppColors.info,
-          items: const [
-            'Dyrektor ds. Mazowsza odpowiedział na zapytanie',
-            'Nowa odpowiedź w ofercie "Lidl Kraków"',
-          ],
-          actionLabel: 'Zobacz wiadomości',
+          items: messagesItems,
+          actionLabel: DashboardStrings.actionSeeMessages,
           route: AppRouter.dashboardMessages,
           isMobile: isMobile,
         ),
@@ -327,7 +402,7 @@ class _QuickActionCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(icon, size: 24, color: iconColor),
+                  Icon(icon, size: AppSpacing.iconMd, color: iconColor),
                   const SizedBox(width: AppSpacing.sm),
                   Text(
                     title.toUpperCase(),
@@ -339,10 +414,13 @@ class _QuickActionCard extends StatelessWidget {
                   if (count > 0) ...[
                     const SizedBox(width: AppSpacing.sm),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm,
+                        vertical: AppSpacing.xs,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.accent,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                       ),
                       child: Text(
                         '$count',
@@ -357,7 +435,7 @@ class _QuickActionCard extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.md),
               ...items.take(3).map((s) => Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
+                    padding: const EdgeInsets.only(bottom: AppSpacing.xs),
                     child: Text(
                       '• $s',
                       style: AppTextStyles.bodyMedium.copyWith(
@@ -382,9 +460,15 @@ class _QuickActionCard extends StatelessWidget {
 }
 
 class _InvestorSidebar extends StatelessWidget {
-  const _InvestorSidebar({required this.showVdrCta});
+  const _InvestorSidebar({
+    required this.showVdrCta,
+    required this.recentlyViewedItems,
+    required this.userCriteriaItems,
+  });
 
   final bool showVdrCta;
+  final List<RecentlyViewedItem> recentlyViewedItems;
+  final List<String> userCriteriaItems;
 
   @override
   Widget build(BuildContext context) {
@@ -392,24 +476,19 @@ class _InvestorSidebar extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _SidebarCard(
-          title: 'Ostatnio oglądane',
-          items: const [
-            'Lokal Warszawa Centrum – 7.8% ROI',
-            'Lidl Kraków',
-            'Grunt Łódź',
-          ],
-          actionLabel: 'Wróć do ofert',
+          title: DashboardStrings.sidebarRecentlyViewed,
+          items: recentlyViewedItems.map((e) => e.displayLabel).toList(),
+          itemRoutes: recentlyViewedItems
+              .map((e) => '/property/${e.listingId}')
+              .toList(),
+          actionLabel: DashboardStrings.sidebarBackToListings,
           route: AppRouter.oferty,
         ),
         const SizedBox(height: AppSpacing.md),
         _SidebarCard(
-          title: 'Twoje kryteria',
-          items: const [
-            'ROI min: 7%',
-            'Budżet: 2–5M PLN',
-            'Region: Mazowieckie',
-          ],
-          actionLabel: 'Edytuj preferencje',
+          title: DashboardStrings.sidebarYourCriteria,
+          items: userCriteriaItems,
+          actionLabel: DashboardStrings.sidebarEditPreferences,
           route: AppRouter.dashboardSettings,
         ),
         if (showVdrCta) ...[
@@ -427,12 +506,15 @@ class _SidebarCard extends StatelessWidget {
     required this.items,
     required this.actionLabel,
     required this.route,
+    this.itemRoutes,
   });
 
   final String title;
   final List<String> items;
   final String actionLabel;
   final String route;
+  /// Opcjonalne linki per pozycja (ta sama długość co [items]). Gdy podane, wiersz jest klikalny.
+  final List<String>? itemRoutes;
 
   @override
   Widget build(BuildContext context) {
@@ -454,15 +536,30 @@ class _SidebarCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
-              ...items.map((s) => Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Text(
-                      '• $s',
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                  )),
+              ...List.generate(items.length, (i) {
+                final label = items[i];
+                final itemRoute =
+                    itemRoutes != null && i < itemRoutes!.length
+                        ? itemRoutes![i]
+                        : null;
+                final text = Text(
+                  '• $label',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
+                );
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                  child: itemRoute != null && itemRoute.isNotEmpty
+                      ? InkWell(
+                          onTap: () => context.go(itemRoute),
+                          borderRadius:
+                              BorderRadius.circular(AppSpacing.radiusSm),
+                          child: text,
+                        )
+                      : text,
+                );
+              }),
               const SizedBox(height: AppSpacing.sm),
               Text(
                 '$actionLabel →',
@@ -499,10 +596,14 @@ class _VdrCtaCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.lock_open_rounded, color: AppColors.ctaHighlight, size: 24),
+                  Icon(
+                    Icons.lock_open_rounded,
+                    color: AppColors.ctaHighlight,
+                    size: AppSpacing.iconMd,
+                  ),
                   const SizedBox(width: AppSpacing.sm),
                   Text(
-                    'ODBLOKUJ VDR',
+                    DashboardStrings.vdrCtaTitle,
                     style: AppTextStyles.titleSmall.copyWith(
                       color: AppColors.ctaHighlight,
                       fontWeight: FontWeight.w700,
@@ -513,14 +614,14 @@ class _VdrCtaCard extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                'Uzyskaj dostęp do pełnej dokumentacji, operatów szacunkowych i umów najmu',
+                DashboardStrings.vdrCtaDescription,
                 style: AppTextStyles.bodySmall.copyWith(
                   color: AppColors.textSecondary,
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
               Text(
-                'Wyślij Proof of Funds →',
+                DashboardStrings.vdrCtaAction,
                 style: AppTextStyles.labelMedium.copyWith(
                   color: AppColors.ctaHighlight,
                   fontWeight: FontWeight.w600,
@@ -574,7 +675,9 @@ class _DefaultDashboardContent extends StatelessWidget {
             ),
           ),
         _SectionLabel(
-          label: hasPartner ? 'Panel Agenta' : 'Panel Inwestora',
+          label: hasPartner
+              ? DashboardStrings.sectionLabelAgent
+              : DashboardStrings.sectionLabelInvestor,
           isMobile: isMobile,
         ),
         const SizedBox(height: AppSpacing.sm),
@@ -614,14 +717,16 @@ class _HeaderSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            isMobile ? 'Panel użytkownika' : 'Witaj w panelu użytkownika',
+            isMobile
+                ? DashboardStrings.titleShort
+                : DashboardStrings.titleLong,
             style: isMobile
                 ? AppTextStyles.headlineMedium
                 : AppTextStyles.headlineLarge,
           ),
           if (isMobile) const SizedBox(height: AppSpacing.xs),
           Text(
-            'Zarządzaj ogłoszeniami, ulubionymi i wiadomościami',
+            DashboardStrings.subtitle,
             style: AppTextStyles.bodyMedium.copyWith(
               color: AppColors.textSecondary,
             ),
@@ -659,7 +764,7 @@ class _QuickSearchBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'Szybkie wyszukiwanie nieruchomości',
+      label: DashboardStrings.searchSemanticLabel,
       child: Material(
         color: AppColors.grey100,
         borderRadius: BorderRadius.circular(isMobile ? AppSpacing.radiusLg : AppSpacing.radiusMd),
@@ -670,19 +775,19 @@ class _QuickSearchBar extends StatelessWidget {
             width: double.infinity,
             padding: EdgeInsets.symmetric(
               horizontal: isMobile ? AppSpacing.md : AppSpacing.lg,
-              vertical: isMobile ? AppSpacing.md + 2 : AppSpacing.sm + 4,
+              vertical: isMobile ? AppSpacing.md : AppSpacing.sm,
             ),
             child: Row(
               children: [
                 Icon(
                   AppIcons.search,
-                  size: isMobile ? 24 : 22,
+                  size: isMobile ? AppSpacing.iconMd : AppSpacing.iconSm,
                   color: AppColors.textSecondary,
                 ),
                 SizedBox(width: isMobile ? AppSpacing.sm : AppSpacing.md),
                 Expanded(
                   child: Text(
-                    'Szukaj według lokalizacji, typu, najemcy...',
+                    DashboardStrings.searchPlaceholder,
                     style: AppTextStyles.bodyMedium.copyWith(
                       color: AppColors.textSecondary,
                     ),
@@ -710,8 +815,8 @@ class _VerifyAccountCta extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = showNdaBanner
-        ? 'Zaakceptuj NDA, aby odblokować pełne oferty'
-        : 'Zweryfikuj konto – zobacz pełne oferty (lokalizacja, galeria)';
+        ? DashboardStrings.verifyCtaNda
+        : DashboardStrings.verifyCtaIdentity;
 
     return Semantics(
       button: true,
@@ -724,7 +829,9 @@ class _VerifyAccountCta extends StatelessWidget {
           borderRadius: BorderRadius.circular(isMobile ? AppSpacing.radiusLg : AppSpacing.radiusMd),
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              minHeight: isMobile ? _kMinTouchTarget * 1.25 : _kMinTouchTarget,
+              minHeight: isMobile
+                  ? AppSpacing.minTouchTarget * 1.25
+                  : AppSpacing.minTouchTarget,
             ),
             child: Padding(
               padding: EdgeInsets.symmetric(
@@ -736,7 +843,7 @@ class _VerifyAccountCta extends StatelessWidget {
                 children: [
                   Icon(
                     Icons.verified_user_outlined,
-                    size: isMobile ? 24 : 22,
+                    size: isMobile ? AppSpacing.iconMd : AppSpacing.iconSm,
                     color: AppColors.info,
                   ),
                   SizedBox(width: isMobile ? AppSpacing.sm : AppSpacing.md),
@@ -772,7 +879,7 @@ class _QuickActionCta extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'Dodaj nowe ogłoszenie',
+      label: DashboardStrings.addListingSemantic,
       child: Material(
         color: AppColors.accent,
         borderRadius: BorderRadius.circular(isMobile ? AppSpacing.radiusLg : AppSpacing.radiusMd),
@@ -781,7 +888,9 @@ class _QuickActionCta extends StatelessWidget {
           borderRadius: BorderRadius.circular(isMobile ? AppSpacing.radiusLg : AppSpacing.radiusMd),
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              minHeight: isMobile ? _kMinTouchTarget * 1.25 : _kMinTouchTarget,
+              minHeight: isMobile
+                  ? AppSpacing.minTouchTarget * 1.25
+                  : AppSpacing.minTouchTarget,
             ),
             child: Padding(
               padding: EdgeInsets.symmetric(
@@ -793,12 +902,12 @@ class _QuickActionCta extends StatelessWidget {
                 children: [
                   Icon(
                     AppIcons.add,
-                    size: isMobile ? 24 : 22,
+                    size: isMobile ? AppSpacing.iconMd : AppSpacing.iconSm,
                     color: AppColors.white,
                   ),
                   SizedBox(width: isMobile ? AppSpacing.sm : AppSpacing.md),
                   Text(
-                    'Dodaj ogłoszenie',
+                    DashboardStrings.addListing,
                     style: AppTextStyles.buttonLarge.copyWith(
                       color: AppColors.white,
                     ),
@@ -833,7 +942,7 @@ class _SectionsGrid extends StatelessWidget {
             _DashboardStatCard(
               section: sections[i],
               isMobile: true,
-              minHeight: _kMinTouchTarget * 1.2,
+              minHeight: AppSpacing.minTouchTarget * 1.2,
             ),
             if (i < sections.length - 1) const SizedBox(height: AppSpacing.sm),
           ],
@@ -876,7 +985,7 @@ class _DashboardStatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: '${section.title}, ${section.value.isNotEmpty && section.value != '—' ? section.value : ''}',
+      label: '${section.title}, ${section.value.isNotEmpty && section.value != DashboardStrings.valueDash ? section.value : ''}',
       child: Material(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
@@ -906,21 +1015,25 @@ class _DashboardStatCard extends StatelessWidget {
   }
 
   Widget _buildMobileLayout() {
-    final showValue = section.value.isNotEmpty && section.value != '—';
+    final showValue = section.value.isNotEmpty && section.value != DashboardStrings.valueDash;
     return Row(
       children: [
         SizedBox(
-          width: _kMinTouchTarget,
-          height: _kMinTouchTarget,
+          width: AppSpacing.minTouchTarget,
+          height: AppSpacing.minTouchTarget,
           child: Center(
             child: Container(
-              width: 52,
-              height: 52,
+              width: AppSpacing.dashboardIconContainerSize,
+              height: AppSpacing.dashboardIconContainerSize,
               decoration: BoxDecoration(
                 color: AppColors.accent.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
               ),
-              child: Icon(section.icon, size: 28, color: AppColors.accent),
+              child: Icon(
+                section.icon,
+                size: AppSpacing.dashboardIconSizeCard,
+                color: AppColors.accent,
+              ),
             ),
           ),
         ),
@@ -936,7 +1049,7 @@ class _DashboardStatCard extends StatelessWidget {
                   section.value,
                   style: AppTextStyles.headlineSmall,
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: AppSpacing.xs),
               ],
               Text(
                 section.title,
@@ -948,12 +1061,12 @@ class _DashboardStatCard extends StatelessWidget {
           ),
         ),
         SizedBox(
-          width: _kMinTouchTarget,
-          height: _kMinTouchTarget,
+          width: AppSpacing.minTouchTarget,
+          height: AppSpacing.minTouchTarget,
           child: Center(
             child: Icon(
               AppIcons.chevronRight,
-              size: 20,
+              size: AppSpacing.iconSm,
               color: AppColors.grey400,
             ),
           ),
@@ -963,7 +1076,7 @@ class _DashboardStatCard extends StatelessWidget {
   }
 
   Widget _buildDesktopLayout() {
-    final showValue = section.value.isNotEmpty && section.value != '—';
+    final showValue = section.value.isNotEmpty && section.value != DashboardStrings.valueDash;
     return FittedBox(
       fit: BoxFit.scaleDown,
       alignment: Alignment.center,
@@ -971,7 +1084,11 @@ class _DashboardStatCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(section.icon, size: 48, color: AppColors.accent),
+          Icon(
+            section.icon,
+            size: AppSpacing.iconXl,
+            color: AppColors.accent,
+          ),
           const SizedBox(height: AppSpacing.md),
           if (showValue) ...[
             Text(

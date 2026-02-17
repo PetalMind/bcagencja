@@ -7,6 +7,7 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/state/models/property_model.dart';
+import '../../../core/state/providers/auth_provider.dart';
 import '../../../core/state/providers/favorites_provider.dart';
 import '../../../core/state/providers/smart_favorites_provider.dart';
 import '../../../widgets/common/custom_button.dart';
@@ -311,6 +312,7 @@ class _ParamItem {
 }
 
 /// Przycisk „Zapisz ofertę” / „Zapisano” – otwiera modal kolekcji lub usuwa z zapisanych.
+/// Nie wyświetlany dla ofert własnego autorstwa (własna oferta nie może być zapisana do ulubionych).
 class _SaveOfferButton extends ConsumerWidget {
   const _SaveOfferButton({required this.property});
 
@@ -318,6 +320,11 @@ class _SaveOfferButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider).valueOrNull;
+    if (user != null && property.ownerId == user.id) {
+      return const SizedBox.shrink();
+    }
+
     final favoriteIds = ref.watch(favoritesProvider);
     final smart = ref.watch(smartFavoritesProvider);
     final isSaved = favoriteIds.contains(property.id);

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_spacing.dart';
-import '../navigation/sidebar.dart';
+import '../navigation/sidebar_x.dart';
 
 /// Udostępnia callback do otwarcia drawera z sidebarem (np. z AppBar).
 class SidebarShellScope extends InheritedWidget {
@@ -55,10 +55,7 @@ class _ScaffoldWithSidebarState extends State<ScaffoldWithSidebar> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(
-              width: 280,
-              child: Sidebar(currentRoute: widget.currentRoute, keyPrefix: 'body'),
-            ),
+            SidebarXShell(currentRoute: widget.currentRoute),
             Expanded(child: widget.child),
           ],
         ),
@@ -69,7 +66,7 @@ class _ScaffoldWithSidebarState extends State<ScaffoldWithSidebar> {
       openDrawer: _openDrawer,
       child: Scaffold(
         key: _scaffoldKey,
-        drawer: Sidebar(currentRoute: widget.currentRoute, keyPrefix: 'drawer'),
+        drawer: SidebarXShell(currentRoute: widget.currentRoute),
         body: widget.child,
       ),
     );

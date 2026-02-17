@@ -1,21 +1,24 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import 'app_user.dart';
 
 void _authLog(String message, [Object? detail]) {
-  if (kDebugMode) {
-    // ignore: avoid_print
-    print('[Auth] $message${detail != null ? ' $detail' : ''}');
-  }
+  // Logi wyłączone – odkomentuj poniżej, aby włączyć w debug:
+  // if (kDebugMode) {
+  //   // ignore: avoid_print
+  //   print('[Auth] $message${detail != null ? ' $detail' : ''}');
+  // }
 }
 
 /// Serwis autentykacji: Firebase Auth + profil użytkownika z Firestore.
@@ -471,6 +474,26 @@ class AuthService {
     });
 
     return userCred;
+  }
+
+  /// Aktualizuje zdjęcie profilowe: upload do Storage (avatars/{uid}.jpg), Auth i Firestore.
+  Future<void> updateUserPhoto(Uint8List imageBytes) async {
+    final user = _auth.currentUser;
+    if (user == null) throw StateError('Brak zalogowanego użytkownika');
+
+    final storage = FirebaseStorage.instance;
+    final ref = storage.ref().child('avatars').child('${user.uid}.jpg');
+    await ref.putData(
+      imageBytes,
+      SettableMetadata(contentType: 'image/jpeg'),
+    );
+    final url = await ref.getDownloadURL();
+
+    await user.updateProfile(photoURL: url);
+    await _firestore.collection('users').doc(user.uid).update({
+      'photoUrl': url,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   /// Loguje akceptację NDA (kolekcja ndaAcceptanceLogs).

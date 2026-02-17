@@ -8,17 +8,24 @@ import '../../features/home/home_page.dart';
 import '../../features/search/search_page.dart';
 import '../../features/listings/listings_results_page.dart';
 import '../../features/property/property_detail_page.dart';
+import '../../features/property/edit_listing_page.dart';
 import '../../features/dashboard/dashboard_page.dart';
 import '../../features/dashboard/pages/my_listings_page.dart';
+import '../../features/dashboard/pages/my_submissions_page.dart';
+import '../../features/dashboard/pages/my_submission_detail_page.dart';
 import '../../features/dashboard/pages/favorites_page.dart';
 import '../../features/dashboard/pages/alerts_page.dart';
 import '../../features/dashboard/pages/messages_page.dart';
 import '../../features/dashboard/pages/statistics_page.dart';
 import '../../features/dashboard/pages/settings_page.dart';
+import '../../features/dashboard/pages/admin_overview_page.dart';
 import '../../features/dashboard/pages/admin_users_page.dart';
 import '../../features/dashboard/pages/admin_submissions_page.dart';
+import '../../features/dashboard/pages/sell_submission_preview_page.dart';
 import '../../features/dashboard/pages/admin_logs_page.dart';
 import '../../features/dashboard/pages/admin_placeholder_page.dart';
+import '../../features/dashboard/pages/admin_global_listings_page.dart';
+import '../../features/dashboard/pages/admin_users_verifications_page.dart';
 import '../../features/about/about_page.dart';
 import '../../features/blog/blog_page.dart';
 import '../../features/contact/contact_page.dart';
@@ -50,17 +57,22 @@ class AppRouter {
   static const String search = '/search';
   static const String searchResults = '/search/results';
   static const String propertyDetail = '/property/:id';
+  static String propertyEdit(String id) => '/property/$id/edit';
   /// Stary URL /add-listing przekierowujemy na /chce-sprzedac
   static const String addListing = '/add-listing';
   static const String dashboard = '/dashboard';
   static const String dashboardListings = '/dashboard/listings';
+  static const String dashboardMySubmissions = '/dashboard/my-submissions';
+  static String dashboardMySubmissionDetail(String id) => '/dashboard/my-submissions/$id';
   static const String dashboardFavorites = '/dashboard/favorites';
   static const String dashboardAlerts = '/dashboard/alerts';
   static const String dashboardMessages = '/dashboard/messages';
   static const String dashboardStatistics = '/dashboard/statistics';
   static const String dashboardSettings = '/dashboard/settings';
+  static const String dashboardAdminOverview = '/dashboard/admin/overview';
   static const String dashboardAdminUsers = '/dashboard/admin/users';
   static const String dashboardAdminSubmissions = '/dashboard/admin/submissions';
+  static const String dashboardAdminSubmissionsPreview = '/dashboard/admin/submissions/preview';
   static const String dashboardAdminLogs = '/dashboard/admin/logs';
   /// Ścieżka do prototypu podstrony admina (pageId: overview, regions-list, itd.)
   static String dashboardAdminPanel(String pageId) => '/dashboard/admin/panel/$pageId';
@@ -144,7 +156,12 @@ class AppRouter {
           GoRoute(
             path: oferty,
             name: 'oferty',
-            builder: (context, state) => const ListingsResultsPage(),
+            builder: (context, state) => ListingsResultsPage(
+              typFilter: state.uri.queryParameters['typ'],
+              roiMin: state.uri.queryParameters['roiMin'],
+              cenaMin: state.uri.queryParameters['cenaMin'],
+              cenaMax: state.uri.queryParameters['cenaMax'],
+            ),
           ),
           // Kalkulator ROI – publiczne narzędzie
           GoRoute(
@@ -221,10 +238,12 @@ class AppRouter {
       GoRoute(
         path: searchResults,
         name: 'searchResults',
-        builder: (context, state) {
-          // Query parameters can be accessed via state.uri.queryParameters
-          return const ListingsResultsPage();
-        },
+        builder: (context, state) => ListingsResultsPage(
+          typFilter: state.uri.queryParameters['typ'],
+          roiMin: state.uri.queryParameters['roiMin'],
+          cenaMin: state.uri.queryParameters['cenaMin'],
+          cenaMax: state.uri.queryParameters['cenaMax'],
+        ),
       ),
       
       // Property detail page
@@ -235,6 +254,16 @@ class AppRouter {
           final id = state.pathParameters['id']!;
           return PropertyDetailPage(propertyId: id);
         },
+        routes: [
+          GoRoute(
+            path: 'edit',
+            name: 'propertyEdit',
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return EditListingPage(propertyId: id);
+            },
+          ),
+        ],
       ),
       
       // Dashboard routes
@@ -248,6 +277,21 @@ class AppRouter {
             path: 'listings',
             name: 'dashboardListings',
             builder: (context, state) => const MyListingsPage(),
+          ),
+          GoRoute(
+            path: 'my-submissions',
+            name: 'dashboardMySubmissions',
+            builder: (context, state) => const MySubmissionsPage(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                name: 'dashboardMySubmissionDetail',
+                builder: (context, state) {
+                  final id = state.pathParameters['id'] ?? '';
+                  return MySubmissionDetailPage(submissionId: id);
+                },
+              ),
+            ],
           ),
           GoRoute(
             path: 'favorites',
@@ -276,6 +320,11 @@ class AppRouter {
           ),
           // Panel admina (tylko ADMIN)
           GoRoute(
+            path: 'admin/overview',
+            name: 'dashboardAdminOverview',
+            builder: (context, state) => const AdminOverviewPage(),
+          ),
+          GoRoute(
             path: 'admin/users',
             name: 'dashboardAdminUsers',
             builder: (context, state) => const AdminUsersPage(),
@@ -284,6 +333,11 @@ class AppRouter {
             path: 'admin/submissions',
             name: 'dashboardAdminSubmissions',
             builder: (context, state) => const AdminSubmissionsPage(),
+          ),
+          GoRoute(
+            path: 'admin/submissions/preview',
+            name: 'dashboardAdminSubmissionsPreview',
+            builder: (context, state) => SellSubmissionPreviewPage(record: state.extra),
           ),
           GoRoute(
             path: 'admin/logs',
@@ -295,6 +349,12 @@ class AppRouter {
             name: 'dashboardAdminPanel',
             builder: (context, state) {
               final pageId = state.pathParameters['pageId'] ?? 'overview';
+              if (pageId == 'listings-global') {
+                return const AdminGlobalListingsPage();
+              }
+              if (pageId == 'users-verifications') {
+                return const AdminUsersVerificationsPage();
+              }
               return AdminPlaceholderPage(pageId: pageId);
             },
           ),

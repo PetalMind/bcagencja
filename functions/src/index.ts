@@ -8,6 +8,7 @@ import * as admin from "firebase-admin";
 import { setGlobalOptions } from "firebase-functions";
 import { onRequest } from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
+import nodemailer from "nodemailer";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
 const WL_API_BASE = "https://wl-api.mf.gov.pl";
@@ -23,10 +24,20 @@ const bucket = admin.storage().bucket();
 setGlobalOptions({ maxInstances: 10 });
 
 /** Ustawia nagłówki CORS – wymagane dla requestów z przeglądarki (localhost, produkcja). */
-function setCorsHeaders(res: { setHeader: (name: string, value: string) => void }, allowAuth = false) {
+function setCorsHeaders(
+  res: { setHeader: (name: string, value: string) => void },
+  options: { allowAuth?: boolean; allowPost?: boolean } = {}
+) {
+  const { allowAuth = false, allowPost = false } = options;
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", allowAuth ? "Content-Type, Authorization" : "Content-Type");
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    allowPost ? "GET, POST, OPTIONS" : "GET, OPTIONS"
+  );
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    allowAuth ? "Content-Type, Authorization" : "Content-Type"
+  );
 }
 
 /** Proxy do API WL – wyszukiwanie podmiotu po NIP. Unika CORS na Flutter Web. */
@@ -87,10 +98,93 @@ function formatWatermarkDate(d: Date): string {
  * Nagłówek: Authorization: Bearer <Firebase ID Token>
  * Zwraca: PDF z tekstem "Dla: {displayName}, {data}, IP: {ip}" na każdej stronie + log w document_downloads.
  */
+/** Walidacja adresu e-mail (prosty regex). */
+function isValidEmail(email: string): boolean {
+  return /^[\w\-+.]+@[\w\-]+(\.[\w\-]+)+$/.test(email);
+}
+
+/**
+ * Wysyła kalkulację ROI na podany adres e-mail.
+ * POST, body JSON: { email: string, subject: string, body: string }.
+ * Wymaga ustawienia w konfiguracji Firebase (lub .env): GMAIL_USER, GMAIL_APP_PASSWORD.
+ * Gdy SMTP nie jest skonfigurowany, zwraca 503.
+ */
+export const sendRoiCalculationEmail = onRequest(
+  { cors: false, region: "europe-west1", maxInstances: 10 },
+  async (req, res) => {
+    setCorsHeaders(res, { allowPost: true });
+    if (req.method === "OPTIONS") {
+      res.status(204).send("");
+      return;
+    }
+    if (req.method !== "POST") {
+      res.status(405).setHeader("Content-Type", "application/json").send(
+        JSON.stringify({ error: "Metoda dozwolona: POST" })
+      );
+      return;
+    }
+
+    let payload: { email?: string; subject?: string; body?: string };
+    try {
+      payload = typeof req.body === "string" ? JSON.parse(req.body) : req.body ?? {};
+    } catch {
+      res.status(400).setHeader("Content-Type", "application/json").send(
+        JSON.stringify({ error: "Nieprawidłowy JSON w body" })
+      );
+      return;
+    }
+
+    const email = typeof payload.email === "string" ? payload.email.trim() : "";
+    const subject = typeof payload.subject === "string" ? payload.subject : "Kalkulacja ROI – BC Agencja";
+    const body = typeof payload.body === "string" ? payload.body : "";
+
+    if (!email || !isValidEmail(email)) {
+      res.status(400).setHeader("Content-Type", "application/json").send(
+        JSON.stringify({ error: "Nieprawidłowy lub pusty adres e-mail" })
+      );
+      return;
+    }
+
+    const gmailUser = process.env.GMAIL_USER;
+    const gmailPass = process.env.GMAIL_APP_PASSWORD;
+    if (!gmailUser || !gmailPass) {
+      logger.warn("sendRoiCalculationEmail: GMAIL_USER / GMAIL_APP_PASSWORD nie ustawione");
+      res.status(503).setHeader("Content-Type", "application/json").send(
+        JSON.stringify({ error: "Wysyłka e-mail nie jest skonfigurowana" })
+      );
+      return;
+    }
+
+    const transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 587,
+      secure: false,
+      auth: { user: gmailUser, pass: gmailPass },
+    });
+
+    try {
+      await transporter.sendMail({
+        from: `"BC Agencja" <${gmailUser}>`,
+        to: email,
+        subject: subject || "Kalkulacja ROI – BC Agencja",
+        text: body,
+      });
+      res.status(200).setHeader("Content-Type", "application/json").send(
+        JSON.stringify({ ok: true })
+      );
+    } catch (e) {
+      logger.error("sendRoiCalculationEmail: błąd wysyłki", e);
+      res.status(500).setHeader("Content-Type", "application/json").send(
+        JSON.stringify({ error: "Błąd wysyłania e-mail" })
+      );
+    }
+  }
+);
+
 export const getDocumentWithWatermark = onRequest(
   { cors: false, region: "europe-west1", maxInstances: 20 },
   async (req, res) => {
-    setCorsHeaders(res, true);
+    setCorsHeaders(res, { allowAuth: true });
     if (req.method === "OPTIONS") {
       res.status(204).send("");
       return;

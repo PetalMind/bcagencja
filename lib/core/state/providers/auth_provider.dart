@@ -2,11 +2,15 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/app_user.dart';
 import '../../auth/auth_service.dart';
+import '../../services/submission_document_service.dart';
 import '../../services/vdr_document_service.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
 final vdrDocumentServiceProvider = Provider<VdrDocumentService>((ref) => VdrDocumentService());
+
+final submissionDocumentServiceProvider =
+    Provider<SubmissionDocumentService>((ref) => SubmissionDocumentService());
 
 /// Aktualny użytkownik aplikacji (null = niezalogowany).
 /// Łączy Firebase Auth z profilem z Firestore (rola, Level 2/3).

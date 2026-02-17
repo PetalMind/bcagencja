@@ -9,8 +9,10 @@ class StepProgressIndicator extends StatelessWidget {
   final List<String> stepLabels;
   /// Skrócone etykiety na mobile (np. „Podst.” zamiast „Podstawy”).
   final List<String>? stepLabelsShort;
-  /// Callback po kliknięciu w krok (ukończony lub bieżący). Null = kroki nieklikalne.
+  /// Callback po kliknięciu w krok. Null = kroki nieklikalne.
   final ValueChanged<int>? onStepTapped;
+  /// Gdy true (np. podgląd), wszystkie kroki są klikalne; w przeciwnym razie tylko ukończone i bieżący.
+  final bool allowTapAnyStep;
 
   const StepProgressIndicator({
     super.key,
@@ -19,6 +21,7 @@ class StepProgressIndicator extends StatelessWidget {
     required this.stepLabels,
     this.stepLabelsShort,
     this.onStepTapped,
+    this.allowTapAnyStep = false,
   });
 
   static const double _circleSize = 40;
@@ -88,7 +91,7 @@ class StepProgressIndicator extends StatelessWidget {
           final isCompleted = index < currentStep;
           final isCurrent = index == currentStep;
           final isLast = index == totalSteps - 1;
-          final canTap = onStepTapped != null && (isCompleted || isCurrent);
+          final canTap = onStepTapped != null && (allowTapAnyStep || isCompleted || isCurrent);
           final label = shortLabels[index];
 
           final stepWidget = Row(

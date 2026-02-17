@@ -116,6 +116,7 @@ class SmartFavoritesNotifier extends Notifier<SmartFavoritesState> {
 
   /// Zapisanie oferty z wyborem kolekcji, notatki i powiadomień.
   /// Równocześnie dodaje propertyId do favoritesProvider.
+  /// Nie zapisuje ofert własnego autorstwa: gdy [ownerId] == currentUser.id, operacja jest pomijana.
   Future<void> saveOffer({
     required String propertyId,
     required List<String> collectionIds,
@@ -123,7 +124,11 @@ class SmartFavoritesNotifier extends Notifier<SmartFavoritesState> {
     bool notifyPriceChange = false,
     bool notifyNewDocs = false,
     bool notifyOthersView = false,
+    String? ownerId,
   }) async {
+    final uid = _currentUserId;
+    if (ownerId != null && uid != null && ownerId == uid) return;
+
     final entry = SavedOfferEntry(
       propertyId: propertyId,
       collectionIds: List.from(collectionIds),

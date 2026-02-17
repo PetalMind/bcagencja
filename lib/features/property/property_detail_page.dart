@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/auth/role_permissions.dart';
 import '../../core/state/providers/auth_provider.dart';
+import '../../core/state/providers/dashboard_providers.dart';
 import '../../core/services/vdr_document_service.dart';
 import '../../widgets/navigation/app_bar_custom.dart';
 import '../../widgets/property/mobile_contact_bar.dart';
@@ -33,53 +35,132 @@ class PropertyDetailPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider).valueOrNull;
+    final propertyAsync = ref.watch(propertyDetailProvider(propertyId));
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < AppSpacing.mobileBreakpoint;
     final isTablet = screenWidth >= AppSpacing.mobileBreakpoint &&
         screenWidth < AppSpacing.tabletBreakpoint;
-    
-    final property = _getPropertyById(propertyId);
     final isDesktop = !isMobile && !isTablet;
-
-    final showTeaserOnly = user == null || !user.hasIdentityVerifiedAccess;
-    final hasVdrAccess = user != null && user.hasVdrAccess(propertyId);
-
-    if (showTeaserOnly) {
-      return Scaffold(
-        appBar: const AppBarCustom(showBackButton: true),
-        body: _PropertyTeaserView(
-          property: property,
-          propertyId: propertyId,
-        ),
-      );
-    }
+    final property = propertyAsync.valueOrNull;
+    final canEdit = property != null &&
+        user != null &&
+        RolePermissions.canEditListing(
+          user.effectiveRoleLevel,
+          user.id,
+          property.ownerId,
+        );
+    final appBarActionsPrepend = canEdit
+        ? [
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: () => context.push('/property/$propertyId/edit'),
+              tooltip: 'Edytuj',
+            ),
+          ]
+        : null;
 
     return Scaffold(
-      appBar: const AppBarCustom(showBackButton: true),
-      body: isDesktop
-          ? _buildDesktopBody(context, ref, property, hasVdrAccess)
-          : SingleChildScrollView(
+      appBar: AppBarCustom(
+        showBackButton: true,
+        actionsPrepend: appBarActionsPrepend,
+      ),
+      body: propertyAsync.when(
+        data: (property) {
+          if (property == null) {
+            return Center(
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildContentContainer(
-                    context,
-                    ref: ref,
-                    property: property,
-                    propertyId: propertyId,
-                    isMobile: isMobile,
-                    includePanelInFlow: true,
-                    hasVdrAccess: hasVdrAccess,
+                  Icon(Icons.home_work_outlined, size: 64, color: AppColors.grey400),
+                  const SizedBox(height: AppSpacing.lg),
+                  Text(
+                    'Oferta nie została znaleziona',
+                    style: AppTextStyles.titleMedium.copyWith(color: AppColors.textSecondary),
                   ),
                 ],
               ),
-            ),
-      bottomNavigationBar: isMobile
-          ? MobileContactBar(
-              price: property.formattedPrice,
-              phone: property.ownerPhone,
-              onMessageTap: () => _openContactSheet(context),
-            )
-          : null,
+            );
+          }
+          final showTeaserOnly = user == null || !user.hasIdentityVerifiedAccess;
+          final hasVdrAccess = user != null && user.hasVdrAccess(propertyId);
+
+          if (showTeaserOnly) {
+            return Stack(
+              children: [
+                if (user != null)
+                  _RecordRecentlyViewed(
+                    userId: user.id,
+                    propertyId: property.id,
+                    title: property.title,
+                    city: property.city,
+                  ),
+                _PropertyTeaserView(
+                  property: property,
+                  propertyId: propertyId,
+                ),
+              ],
+            );
+          }
+
+          return Stack(
+            children: [
+              _RecordRecentlyViewed(
+                userId: user.id,
+                propertyId: property.id,
+                title: property.title,
+                city: property.city,
+              ),
+              isDesktop
+                  ? _buildDesktopBody(context, ref, property, hasVdrAccess)
+                  : SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          _buildContentContainer(
+                            context,
+                            ref: ref,
+                            property: property,
+                            propertyId: propertyId,
+                            isMobile: isMobile,
+                            includePanelInFlow: true,
+                            hasVdrAccess: hasVdrAccess,
+                          ),
+                        ],
+                      ),
+                    ),
+            ],
+          );
+        },
+        loading: () => const Center(
+          child: CircularProgressIndicator(color: AppColors.primaryDark),
+        ),
+        error: (err, _) => Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: AppColors.error),
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                'Błąd ładowania oferty',
+                style: AppTextStyles.titleMedium.copyWith(color: AppColors.textSecondary),
+              ),
+            ],
+          ),
+        ),
+      ),
+      bottomNavigationBar: propertyAsync.maybeWhen(
+        data: (p) {
+          if (p == null) return null;
+          final showTeaser = user == null || !user.hasIdentityVerifiedAccess;
+          return !showTeaser && isMobile
+              ? MobileContactBar(
+                  price: p.formattedPrice,
+                  phone: p.ownerPhone,
+                  onMessageTap: () => _openContactSheet(context),
+                )
+              : null;
+        },
+        orElse: () => null,
+      ),
     );
   }
 
@@ -773,11 +854,43 @@ class PropertyDetailPage extends ConsumerWidget {
     }
   }
   
-  Property _getPropertyById(String id) {
-    // Extract number from id (e.g., "property_2" -> 2)
-    final index = int.tryParse(id.replaceAll('property_', '')) ?? 0;
-    return Property.mock(index);
+}
+
+/// Rejestruje obejrzenie oferty w „Ostatnio oglądane” (Firestore) – raz przy wejściu na stronę.
+class _RecordRecentlyViewed extends StatefulWidget {
+  const _RecordRecentlyViewed({
+    required this.userId,
+    required this.propertyId,
+    required this.title,
+    required this.city,
+  });
+
+  final String userId;
+  final String propertyId;
+  final String title;
+  final String city;
+
+  @override
+  State<_RecordRecentlyViewed> createState() => _RecordRecentlyViewedState();
+}
+
+class _RecordRecentlyViewedState extends State<_RecordRecentlyViewed> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final container = ProviderScope.containerOf(context);
+      container.read(recentlyViewedServiceProvider).recordView(
+            widget.userId,
+            widget.propertyId,
+            widget.title,
+            widget.city,
+          );
+    });
   }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
 }
 
 /// Widok teasera oferty: 1 zdjęcie, typ, powierzchnia, cena, region (bez adresu), krótki opis. CTA → logowanie/NDA.

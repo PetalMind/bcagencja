@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Serwis panelu admina: użytkownicy, logi.
+import '../state/models/property_model.dart';
+
+/// Serwis panelu admina: użytkownicy, logi, globalna lista ofert.
 /// Wymaga reguł Firestore dopuszczających odczyt/zapis dla roli admin.
 class AdminService {
   AdminService({FirebaseFirestore? firestore})
@@ -10,6 +12,16 @@ class AdminService {
 
   static const String _usersCollection = 'users';
   static const String _logsCollection = 'document_downloads';
+  static const String _listingsCollection = 'listings';
+
+  /// Lista agentów (rola agent) do przypisywania zgłoszeń.
+  Future<List<AdminUserRecord>> getAgents() async {
+    final snap = await _firestore.collection(_usersCollection).get();
+    return snap.docs
+        .map((d) => AdminUserRecord.fromFirestore(d.id, d.data()))
+        .where((u) => u.role == 'agent')
+        .toList();
+  }
 
   /// Stream listy użytkowników (dla panelu admina).
   Stream<List<AdminUserRecord>> streamUsers() {
@@ -42,9 +54,24 @@ class AdminService {
             .map((doc) => AdminLogRecord.fromFirestore(doc.id, doc.data()))
             .toList());
   }
+
+  /// Stream globalnej listy ofert (kolekcja listings). Tylko dla admina.
+  /// Zapytanie: orderBy('createdAt') – indeks w firestore.indexes.json (listings, createdAt DESC).
+  Stream<List<Property>> streamGlobalListings({int limit = 500}) {
+    return _firestore
+        .collection(_listingsCollection)
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((doc) => Property.fromFirestore(doc.id, doc.data()))
+            .whereType<Property>()
+            .toList());
+  }
 }
 
 /// Rekord użytkownika w panelu admina.
+/// Pola weryfikacji (NDA, accessLevel, VDR) używane w widoku „Weryfikacje tożsamości”.
 class AdminUserRecord {
   final String id;
   final String? email;
@@ -52,6 +79,12 @@ class AdminUserRecord {
   final String role;
   final String? regionVoivodeship;
   final DateTime? createdAt;
+  /// Data akceptacji NDA (Grant Level 2).
+  final DateTime? ndaAcceptedAt;
+  /// Poziom dostępu: teaser | identityVerified | vdr.
+  final String accessLevel;
+  /// Identyfikatory ofert, do których użytkownik ma dostęp VDR (Grant Level 3).
+  final List<String> vdrAccessForListingIds;
 
   AdminUserRecord({
     required this.id,
@@ -60,10 +93,15 @@ class AdminUserRecord {
     required this.role,
     this.regionVoivodeship,
     this.createdAt,
+    this.ndaAcceptedAt,
+    this.accessLevel = 'teaser',
+    this.vdrAccessForListingIds = const [],
   });
 
   static AdminUserRecord fromFirestore(String id, Map<String, dynamic> data) {
     final createdAt = data['createdAt'];
+    final ndaAcceptedAt = data['ndaAcceptedAt'];
+    final vdrList = data['vdrAccessForListingIds'];
     return AdminUserRecord(
       id: id,
       email: data['email'] as String?,
@@ -71,6 +109,11 @@ class AdminUserRecord {
       role: data['role'] as String? ?? 'lead',
       regionVoivodeship: data['regionVoivodeship'] as String?,
       createdAt: createdAt is Timestamp ? createdAt.toDate() : null,
+      ndaAcceptedAt: ndaAcceptedAt is Timestamp ? ndaAcceptedAt.toDate() : null,
+      accessLevel: data['accessLevel'] as String? ?? 'teaser',
+      vdrAccessForListingIds: vdrList is List
+          ? List<String>.from(vdrList.map((e) => e.toString()))
+          : const [],
     );
   }
 
@@ -81,6 +124,22 @@ class AdminUserRecord {
       case 'agent': return 'Agent';
       case 'lead': return 'Inwestor';
       default: return role;
+    }
+  }
+
+  /// Czy użytkownik ma Level 2 (Identity Verified) – NDA zaakceptowane, pełna oferta.
+  bool get isIdentityVerified =>
+      accessLevel == 'identityVerified' || accessLevel == 'vdr' || ndaAcceptedAt != null;
+
+  /// Etykieta poziomu dostępu do wyświetlenia.
+  String get accessLevelLabel {
+    switch (accessLevel) {
+      case 'vdr':
+        return 'VDR';
+      case 'identityVerified':
+        return 'Identity Verified';
+      default:
+        return 'Teaser';
     }
   }
 }

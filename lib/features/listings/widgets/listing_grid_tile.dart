@@ -7,6 +7,7 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/state/models/property_model.dart';
+import '../../../core/state/providers/auth_provider.dart';
 import '../../../core/state/providers/favorites_provider.dart';
 import '../../../core/state/providers/smart_favorites_provider.dart';
 import '../../../widgets/common/watermarked_image.dart';
@@ -75,6 +76,8 @@ class _ListingGridTileState extends ConsumerState<ListingGridTile> {
   @override
   Widget build(BuildContext context) {
     final property = widget.property;
+    final user = ref.watch(currentUserProvider).valueOrNull;
+    final isOwnListing = user != null && property.ownerId == user.id;
     final favorites = ref.watch(favoritesProvider);
     final isFavorite = favorites.contains(property.id);
     final semanticLabel =
@@ -159,48 +162,49 @@ class _ListingGridTileState extends ConsumerState<ListingGridTile> {
                             ),
                           ),
                         ),
-                      Positioned(
-                        top: AppSpacing.xs,
-                        right: AppSpacing.xs,
-                        child: Semantics(
-                          label: isFavorite
-                              ? 'Usuń z ulubionych'
-                              : 'Dodaj do ulubionych',
-                          button: true,
-                          child: IconButton(
-                            icon: Icon(
-                              isFavorite
-                                  ? AppIcons.favorites
-                                  : AppIcons.favoriteBorder,
-                              size: 18,
-                              color:
-                                  isFavorite ? AppColors.accent : AppColors.white,
+                      if (!isOwnListing)
+                        Positioned(
+                          top: AppSpacing.xs,
+                          right: AppSpacing.xs,
+                          child: Semantics(
+                            label: isFavorite
+                                ? 'Usuń z ulubionych'
+                                : 'Dodaj do ulubionych',
+                            button: true,
+                            child: IconButton(
+                              icon: Icon(
+                                isFavorite
+                                    ? AppIcons.favorites
+                                    : AppIcons.favoriteBorder,
+                                size: 18,
+                                color:
+                                    isFavorite ? AppColors.accent : AppColors.white,
+                              ),
+                              style: IconButton.styleFrom(
+                                backgroundColor:
+                                    AppColors.black.withValues(alpha: 0.5),
+                                padding: const EdgeInsets.all(4),
+                                minimumSize: const Size(28, 28),
+                              ),
+                              onPressed: () {
+                                if (isFavorite) {
+                                  ref
+                                      .read(smartFavoritesProvider.notifier)
+                                      .removeOffer(property.id);
+                                } else {
+                                  final entry = ref
+                                      .read(smartFavoritesProvider)
+                                      .entryFor(property.id);
+                                  showSaveToCollectionModal(
+                                    context: context,
+                                    property: property,
+                                    existingEntry: entry,
+                                  );
+                                }
+                              },
                             ),
-                            style: IconButton.styleFrom(
-                              backgroundColor:
-                                  AppColors.black.withValues(alpha: 0.5),
-                              padding: const EdgeInsets.all(4),
-                              minimumSize: const Size(28, 28),
-                            ),
-                            onPressed: () {
-                              if (isFavorite) {
-                                ref
-                                    .read(smartFavoritesProvider.notifier)
-                                    .removeOffer(property.id);
-                              } else {
-                                final entry = ref
-                                    .read(smartFavoritesProvider)
-                                    .entryFor(property.id);
-                                showSaveToCollectionModal(
-                                  context: context,
-                                  property: property,
-                                  existingEntry: entry,
-                                );
-                              }
-                            },
                           ),
                         ),
-                      ),
                         if (_isHovered && property.images.length > 1) ...[
                           Positioned(
                             left: 0,

@@ -26,6 +26,7 @@ class PlaceDetails {
   final String? administrativeArea; // województwo
   final String? street;
   final String? streetNumber;
+  final String? postalCode; // XX-XXX
 
   PlaceDetails({
     required this.formattedAddress,
@@ -35,6 +36,7 @@ class PlaceDetails {
     this.administrativeArea,
     this.street,
     this.streetNumber,
+    this.postalCode,
   });
 }
 
@@ -147,6 +149,7 @@ class GooglePlacesService {
       String? administrativeArea;
       String? street;
       String? streetNumber;
+      String? postalCode;
       final components = result['address_components'] as List<dynamic>?;
       if (components != null) {
         for (final c in components) {
@@ -157,7 +160,12 @@ class GooglePlacesService {
           if (types.contains('administrative_area_level_1')) administrativeArea = longName;
           if (types.contains('route')) street = longName;
           if (types.contains('street_number')) streetNumber = longName;
+          if (types.contains('postal_code')) postalCode = longName;
         }
+      }
+      // Normalizuj kod do XX-XXX jeśli jest samymi cyframi
+      if (postalCode != null && postalCode!.isNotEmpty && RegExp(r'^\d{5}$').hasMatch(postalCode!)) {
+        postalCode = '${postalCode!.substring(0, 2)}-${postalCode!.substring(2)}';
       }
 
       return PlaceDetails(
@@ -168,6 +176,7 @@ class GooglePlacesService {
         administrativeArea: administrativeArea,
         street: street,
         streetNumber: streetNumber,
+        postalCode: postalCode,
       );
     } catch (_) {
       return null;
@@ -217,6 +226,7 @@ class GooglePlacesService {
       String? administrativeArea;
       String? street;
       String? streetNumber;
+      String? postalCode;
       final components = result['address_components'] as List<dynamic>?;
       if (components != null) {
         for (final c in components) {
@@ -227,7 +237,11 @@ class GooglePlacesService {
           if (types.contains('administrative_area_level_1')) administrativeArea = longName;
           if (types.contains('route')) street = longName;
           if (types.contains('street_number')) streetNumber = longName;
+          if (types.contains('postal_code')) postalCode = longName;
         }
+      }
+      if (postalCode != null && postalCode!.isNotEmpty && RegExp(r'^\d{5}$').hasMatch(postalCode!)) {
+        postalCode = '${postalCode!.substring(0, 2)}-${postalCode!.substring(2)}';
       }
 
       return PlaceDetails(
@@ -238,6 +252,7 @@ class GooglePlacesService {
         administrativeArea: administrativeArea,
         street: street,
         streetNumber: streetNumber,
+        postalCode: postalCode,
       );
     } catch (_) {
       return null;

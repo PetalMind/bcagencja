@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../../core/state/models/property_model.dart';
+import '../../../core/state/providers/dashboard_providers.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_colors.dart';
@@ -6,15 +10,40 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/router/app_router.dart';
 import '../widgets/dashboard_scaffold.dart';
 
-class StatisticsPage extends StatelessWidget {
+/// Formatuje liczbę z odstępami tysięcy (np. 1247 → "1 247").
+String _formatCount(int value) {
+  if (value < 1000) return '$value';
+  final s = value.toString();
+  final buf = StringBuffer();
+  for (var i = 0; i < s.length; i++) {
+    if (i > 0 && (s.length - i) % 3 == 0) buf.write(' ');
+    buf.write(s[i]);
+  }
+  return buf.toString();
+}
+
+/// Etykieta ogłoszenia do listy „najpopularniejsze”: typ + lokalizacja — wyświetlenia.
+String _listingStatsLabel(Property p) {
+  final loc = p.district != null && p.district!.isNotEmpty
+      ? '${p.city}, ${p.district}'
+      : p.city;
+  return '${p.propertyTypeLabel}, $loc — ${_formatCount(p.views)} wyświetleń';
+}
+
+class StatisticsPage extends ConsumerWidget {
   const StatisticsPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isMobile = MediaQuery.sizeOf(context).width < AppSpacing.mobileBreakpoint;
     final isTablet = MediaQuery.sizeOf(context).width >= AppSpacing.mobileBreakpoint &&
         MediaQuery.sizeOf(context).width < AppSpacing.tabletBreakpoint;
     final crossAxisCount = isMobile ? 1 : (isTablet ? 2 : 3);
+
+    final views = ref.watch(partnerStatsViewsProvider);
+    final favorites = ref.watch(partnerStatsFavoritesProvider);
+    final contactCount = ref.watch(partnerStatsContactCountProvider);
+    final topListings = ref.watch(partnerTopListingsByViewsProvider);
 
     return DashboardScaffold(
       title: 'Statystyki',
@@ -39,21 +68,21 @@ class StatisticsPage extends StatelessWidget {
             children: [
               _StatCard(
                 title: 'Wyświetlenia',
-                value: '1 247',
-                subtitle: 'Ostatnie 30 dni',
+                value: _formatCount(views),
+                subtitle: 'Łącznie dla Twoich ofert',
                 icon: AppIcons.visibility,
                 isMobile: isMobile,
               ),
               _StatCard(
                 title: 'Ulubione',
-                value: '89',
+                value: _formatCount(favorites),
                 subtitle: 'Zapisane przez użytkowników',
                 icon: AppIcons.favorites,
                 isMobile: isMobile,
               ),
               _StatCard(
                 title: 'Kontakt',
-                value: '23',
+                value: _formatCount(contactCount),
                 subtitle: 'Zapytania / wiadomości',
                 icon: AppIcons.message,
                 isMobile: isMobile,
@@ -66,14 +95,20 @@ class StatisticsPage extends StatelessWidget {
             style: AppTextStyles.titleMedium,
           ),
           const SizedBox(height: AppSpacing.sm),
-          _PlaceholderList(
-            items: const [
-              'Biurowiec klasy A, Warszawa Mokotów — 312 wyświetleń',
-              'Hala magazynowa, Śląsk — 198 wyświetleń',
-              'Lokal handlowy, Kraków — 156 wyświetleń',
-            ],
-            isMobile: isMobile,
-          ),
+          topListings.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Text(
+                    'Brak opublikowanych ofert lub brak wyświetleń.',
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                )
+              : _TopListingsList(
+                  listings: topListings,
+                  isMobile: isMobile,
+                ),
         ],
       ),
     );
@@ -155,44 +190,48 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-class _PlaceholderList extends StatelessWidget {
-  const _PlaceholderList({
-    required this.items,
+class _TopListingsList extends StatelessWidget {
+  const _TopListingsList({
+    required this.listings,
     required this.isMobile,
   });
 
-  final List<String> items;
+  final List<Property> listings;
   final bool isMobile;
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      children: items
+      children: listings
           .map(
-            (e) => Padding(
+            (p) => Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-              child: Container(
-                padding: EdgeInsets.all(isMobile ? AppSpacing.md : AppSpacing.lg),
-                decoration: BoxDecoration(
-                  color: AppColors.grey50,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                  border: Border.all(color: AppColors.borderLight),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      AppIcons.trending,
-                      size: 20,
-                      color: AppColors.accent,
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Text(
-                        e,
-                        style: AppTextStyles.bodyMedium,
+              child: InkWell(
+                onTap: () => context.go('/property/${p.id}'),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                child: Container(
+                  padding: EdgeInsets.all(isMobile ? AppSpacing.md : AppSpacing.lg),
+                  decoration: BoxDecoration(
+                    color: AppColors.grey50,
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                    border: Border.all(color: AppColors.borderLight),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        AppIcons.trending,
+                        size: 20,
+                        color: AppColors.accent,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          _listingStatsLabel(p),
+                          style: AppTextStyles.bodyMedium,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

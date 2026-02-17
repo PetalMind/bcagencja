@@ -9,10 +9,13 @@ class RoiCtaSection extends StatelessWidget {
     super.key,
     required this.roi,
     required this.onShowOffers,
+    this.onSaveToEmail,
   });
 
   final double roi;
   final VoidCallback onShowOffers;
+  /// Wywołane po naciśnięciu „Zapisz kalkulację na email” – rodzic otwiera modal z danymi.
+  final VoidCallback? onSaveToEmail;
 
   @override
   Widget build(BuildContext context) {
@@ -110,12 +113,11 @@ class RoiCtaSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
-        TextButton(
-          onPressed: () {
-            // TODO: Zapisz kalkulację na email (dla zalogowanych)
-          },
-          child: const Text('Zapisz kalkulację na email'),
-        ),
+        if (onSaveToEmail != null)
+          TextButton(
+            onPressed: onSaveToEmail,
+            child: const Text('Zapisz kalkulację na email'),
+          ),
       ],
     );
   }

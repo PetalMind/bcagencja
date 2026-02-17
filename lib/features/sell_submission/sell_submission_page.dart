@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_spacing.dart';
@@ -18,8 +19,17 @@ import 'steps/step6_contact.dart';
 
 /// Lead magnet "Chcę sprzedać" – 6-krokowy wizard.
 /// Zgłoszenia trafiają do Firestore `listing_submissions` (status: pending) – baza "Oczekiwanie" w panelu admina.
+/// [initialData] – dane do podglądu (np. z panelu admina); gdy podane, formularz jest wypełniony.
+/// [readOnly] – tryb tylko do odczytu (podgląd); ukrywa wysyłkę, pokazuje tylko "Wstecz".
 class SellSubmissionPage extends StatefulWidget {
-  const SellSubmissionPage({super.key});
+  const SellSubmissionPage({
+    super.key,
+    this.initialData,
+    this.readOnly = false,
+  });
+
+  final ListingSubmissionData? initialData;
+  final bool readOnly;
 
   @override
   State<SellSubmissionPage> createState() => _SellSubmissionPageState();
@@ -28,9 +38,18 @@ class SellSubmissionPage extends StatefulWidget {
 class _SellSubmissionPageState extends State<SellSubmissionPage> {
   static const int _totalSteps = 6;
   int _currentStep = 0;
-  final _formData = ListingSubmissionData();
+  late final ListingSubmissionData _formData;
   bool _isSubmitting = false;
   final _submissionService = ListingSubmissionService();
+
+  @override
+  void initState() {
+    super.initState();
+    _formData = ListingSubmissionData();
+    if (widget.initialData != null) {
+      _formData.copyFrom(widget.initialData!);
+    }
+  }
 
   static const _stepLabels = [
     'Typ',
@@ -69,6 +88,7 @@ class _SellSubmissionPageState extends State<SellSubmissionPage> {
   }
 
   bool _hasUnsavedData() {
+    if (widget.readOnly) return false;
     return _formData.propertyType != null ||
         (_formData.city != null && _formData.city!.trim().isNotEmpty) ||
         (_formData.contactName != null && _formData.contactName!.trim().isNotEmpty) ||
@@ -102,7 +122,7 @@ class _SellSubmissionPageState extends State<SellSubmissionPage> {
   }
 
   void _goNext() {
-    if (!_isCurrentStepValid()) {
+    if (!widget.readOnly && !_isCurrentStepValid()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Wypełnij wymagane pola')),
       );
@@ -123,6 +143,7 @@ class _SellSubmissionPageState extends State<SellSubmissionPage> {
     if (!_formData.isStep1Valid ||
         !_formData.isStep2Valid ||
         !_formData.isStep3Valid ||
+        !_formData.isStep4Valid ||
         !_formData.isStep6Valid) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Wypełnij wszystkie wymagane pola')),
@@ -135,7 +156,8 @@ class _SellSubmissionPageState extends State<SellSubmissionPage> {
         _formData.estimatedValueMin = _formData.estimatedRangeFromRent!.$1;
         _formData.estimatedValueMax = _formData.estimatedRangeFromRent!.$2;
       }
-      final id = await _submissionService.submit(_formData);
+      final uid = FirebaseAuth.instance.currentUser?.uid; // uid z Auth – zapisywany w Firestore jako submittedByUid
+      final id = await _submissionService.submit(_formData, submittedByUid: uid);
       if (!mounted) return;
       context.go(
         '${AppRouter.chceSprzedac}/sukces',
@@ -161,6 +183,7 @@ class _SellSubmissionPageState extends State<SellSubmissionPage> {
     final isLastStep = _currentStep >= _totalSteps - 1;
     final isStep5 = _currentStep == 4;
 
+    final readOnly = widget.readOnly;
     return PopScope(
       canPop: !_hasUnsavedData(),
       onPopInvokedWithResult: (didPop, result) {
@@ -176,8 +199,13 @@ class _SellSubmissionPageState extends State<SellSubmissionPage> {
               totalSteps: _totalSteps,
               stepLabels: _stepLabels,
               stepLabelsShort: _stepLabelsShort,
+              allowTapAnyStep: readOnly,
               onStepTapped: (index) {
-                if (index <= _currentStep) setState(() => _currentStep = index);
+                if (readOnly) {
+                  if (index >= 0 && index < _totalSteps) setState(() => _currentStep = index);
+                } else {
+                  if (index >= 0 && index <= _currentStep) setState(() => _currentStep = index);
+                }
               },
             ),
             Expanded(child: _buildCurrentStep()),
@@ -193,43 +221,56 @@ class _SellSubmissionPageState extends State<SellSubmissionPage> {
                   ),
                 ],
               ),
-              child: Row(
-                children: [
-                  if (_currentStep > 0) ...[
-                    Expanded(
-                      child: CustomButton(
-                        label: 'Wróć',
-                        onPressed: _isSubmitting ? null : _goPrev,
-                        variant: ButtonVariant.outlined,
-                        fullWidth: true,
-                      ),
+              child: readOnly
+                  ? Row(
+                      children: [
+                        Expanded(
+                          child: CustomButton(
+                            label: 'Wstecz',
+                            onPressed: () => context.pop(),
+                            variant: ButtonVariant.outlined,
+                            fullWidth: true,
+                          ),
+                        ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        if (_currentStep > 0) ...[
+                          Expanded(
+                            child: CustomButton(
+                              label: 'Wróć',
+                              onPressed: _isSubmitting ? null : _goPrev,
+                              variant: ButtonVariant.outlined,
+                              fullWidth: true,
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.md),
+                        ],
+                        if (isStep5) ...[
+                          Expanded(
+                            child: CustomButton(
+                              label: 'Pomiń ten krok',
+                              onPressed: _isSubmitting ? null : _skipStep5,
+                              variant: ButtonVariant.outlined,
+                              fullWidth: true,
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.md),
+                        ],
+                        Expanded(
+                          child: CustomButton(
+                            label: isLastStep ? 'Wyślij zgłoszenie' : 'Dalej',
+                            onPressed: _isSubmitting
+                                ? null
+                                : (isLastStep ? _submit : _goNext),
+                            variant: ButtonVariant.primary,
+                            fullWidth: true,
+                            isLoading: isLastStep && _isSubmitting,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: AppSpacing.md),
-                  ],
-                  if (isStep5) ...[
-                    Expanded(
-                      child: CustomButton(
-                        label: 'Pomiń ten krok',
-                        onPressed: _isSubmitting ? null : _skipStep5,
-                        variant: ButtonVariant.outlined,
-                        fullWidth: true,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.md),
-                  ],
-                  Expanded(
-                    child: CustomButton(
-                      label: isLastStep ? 'Wyślij zgłoszenie' : 'Dalej',
-                      onPressed: _isSubmitting
-                          ? null
-                          : (isLastStep ? _submit : _goNext),
-                      variant: ButtonVariant.primary,
-                      fullWidth: true,
-                      isLoading: isLastStep && _isSubmitting,
-                    ),
-                  ),
-                ],
-              ),
             ),
           ],
         ),
@@ -239,38 +280,45 @@ class _SellSubmissionPageState extends State<SellSubmissionPage> {
   }
 
   Widget _buildCurrentStep() {
+    final readOnly = widget.readOnly;
     switch (_currentStep) {
       case 0:
         return Step1PropertyType(
           formData: _formData,
           onDataChanged: (_) => setState(() {}),
           onTypeSelected: () => _goNext(),
+          readOnly: readOnly,
         );
       case 1:
         return Step2Location(
           formData: _formData,
           onDataChanged: (_) => setState(() {}),
           onAddressSelected: () => _goNext(),
+          readOnly: readOnly,
         );
       case 2:
         return Step3BasicData(
           formData: _formData,
           onDataChanged: (_) => setState(() {}),
+          readOnly: readOnly,
         );
       case 3:
         return Step4Price(
           formData: _formData,
           onDataChanged: (_) => setState(() {}),
+          readOnly: readOnly,
         );
       case 4:
         return Step5Documentation(
           formData: _formData,
           onDataChanged: (_) => setState(() {}),
+          readOnly: readOnly,
         );
       case 5:
         return Step6Contact(
           formData: _formData,
           onDataChanged: (_) => setState(() {}),
+          readOnly: readOnly,
         );
       default:
         return const Center(child: Text('Krok nieznany'));

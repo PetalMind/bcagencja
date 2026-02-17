@@ -11,6 +11,7 @@ import '../../../core/theme/app_text_styles.dart';
 import 'roi_input_field.dart';
 import 'roi_cta_section.dart';
 import 'roi_registration_modal.dart';
+import 'roi_save_to_email_modal.dart';
 import '../../../core/state/providers/auth_provider.dart';
 import '../../../core/router/app_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -86,6 +87,19 @@ class _RoiAdvancedSectionState extends ConsumerState<RoiAdvancedSection> {
         builder: (ctx) => RoiRegistrationModal(returnPath: _buildOffersPath()),
       );
     }
+  }
+
+  void _handleSaveToEmail() {
+    if (_quickResults == null) return;
+    showDialog<bool>(
+      context: context,
+      builder: (ctx) => RoiSaveToEmailModal(
+        inputs: _inputs,
+        results: _quickResults!,
+        advancedInputs: _inputs,
+        advancedResults: _advancedResults,
+      ),
+    );
   }
 
   @override
@@ -413,6 +427,7 @@ class _RoiAdvancedSectionState extends ConsumerState<RoiAdvancedSection> {
         RoiCtaSection(
           roi: quick.roi,
           onShowOffers: _handleShowOffers,
+          onSaveToEmail: _handleSaveToEmail,
         ),
       ],
     );

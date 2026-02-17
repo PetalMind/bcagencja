@@ -9,7 +9,9 @@ list(APPEND FLUTTER_PLUGIN_LIST
   firebase_core
   firebase_storage
   geolocator_windows
+  irondash_engine_context
   share_plus
+  super_native_extensions
   url_launcher_windows
 )
 

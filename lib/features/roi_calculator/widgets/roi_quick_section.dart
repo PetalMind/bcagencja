@@ -10,6 +10,7 @@ import '../../../core/theme/app_text_styles.dart';
 import 'roi_input_field.dart';
 import 'roi_cta_section.dart';
 import 'roi_registration_modal.dart';
+import 'roi_save_to_email_modal.dart';
 import '../../../core/state/providers/auth_provider.dart';
 import '../../../core/router/app_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -87,6 +88,17 @@ class _RoiQuickSectionState extends ConsumerState<RoiQuickSection> {
     }
   }
 
+  void _handleSaveToEmail() {
+    if (_results == null) return;
+    showDialog<bool>(
+      context: context,
+      builder: (ctx) => RoiSaveToEmailModal(
+        inputs: _inputs,
+        results: _results!,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < AppSpacing.mobileBreakpoint;
@@ -108,6 +120,7 @@ class _RoiQuickSectionState extends ConsumerState<RoiQuickSection> {
                   RoiCtaSection(
                     roi: _results!.roi,
                     onShowOffers: _handleShowOffers,
+                    onSaveToEmail: _handleSaveToEmail,
                   ),
                 ],
               ],
@@ -143,6 +156,7 @@ class _RoiQuickSectionState extends ConsumerState<RoiQuickSection> {
                       RoiCtaSection(
                         roi: _results!.roi,
                         onShowOffers: _handleShowOffers,
+                        onSaveToEmail: _handleSaveToEmail,
                       ),
                     ],
                   ],
@@ -461,12 +475,15 @@ class _RoiQuickSectionState extends ConsumerState<RoiQuickSection> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Icon(Icons.warning_amber, color: AppColors.warning, size: 20),
                         const SizedBox(width: AppSpacing.sm),
-                        Text(
-                          'DSCR poniżej 1.25 = trudności z kredytem bankowym',
-                          style: AppTextStyles.labelMedium.copyWith(color: AppColors.warning),
+                        Expanded(
+                          child: Text(
+                            'DSCR poniżej 1.25 = trudności z kredytem bankowym',
+                            style: AppTextStyles.labelMedium.copyWith(color: AppColors.warning),
+                          ),
                         ),
                       ],
                     ),

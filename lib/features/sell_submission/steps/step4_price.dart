@@ -1,18 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_colors.dart';
+import '../input_formatters.dart';
 import '../listing_submission_model.dart';
 
 /// Krok 4: Szacunkowa cena – anchoring, oczekiwana cena, elastyczność.
 class Step4Price extends StatefulWidget {
   final ListingSubmissionData formData;
   final ValueChanged<ListingSubmissionData> onDataChanged;
+  final bool readOnly;
 
   const Step4Price({
     super.key,
     required this.formData,
     required this.onDataChanged,
+    this.readOnly = false,
   });
 
   @override
@@ -104,12 +108,18 @@ class _Step4PriceState extends State<Step4Price> {
           const SizedBox(height: AppSpacing.sm),
           TextFormField(
             controller: _expectedPriceController,
-            onChanged: (_) => _syncExpectedPrice(),
+            readOnly: widget.readOnly,
+            onChanged: widget.readOnly ? null : (_) => _syncExpectedPrice(),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              DecimalTextInputFormatter(maxLength: kMaxPriceLength),
+              LengthLimitingTextInputFormatter(kMaxPriceLength),
+            ],
             decoration: InputDecoration(
               labelText: 'Oczekiwana cena',
               suffixText: 'PLN',
               hintText: 'np. 2900000',
+              helperText: 'Tylko cyfry, bez liter',
               border: const OutlineInputBorder(),
               filled: true,
               fillColor: AppColors.white,
@@ -156,7 +166,7 @@ class _Step4PriceState extends State<Step4Price> {
         value: value,
         groupValue: widget.formData.priceFlexibility,
         title: Text(label, style: AppTextStyles.bodyMedium),
-        onChanged: (v) {
+        onChanged: widget.readOnly ? null : (v) {
           widget.formData.priceFlexibility = v;
           widget.onDataChanged(widget.formData);
           setState(() {});

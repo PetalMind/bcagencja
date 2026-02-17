@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/state/models/property_model.dart';
+import '../../../core/state/providers/auth_provider.dart';
+import '../../../core/state/providers/favorites_provider.dart';
+import '../../../core/state/providers/smart_favorites_provider.dart';
 import '../../../widgets/common/watermarked_image.dart';
+import '../../../widgets/common/save_to_collection_modal.dart';
 
-class SimilarListings extends StatelessWidget {
+class SimilarListings extends ConsumerWidget {
   final String propertyId;
   
   const SimilarListings({
@@ -16,7 +21,7 @@ class SimilarListings extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < AppSpacing.mobileBreakpoint;
     
@@ -50,7 +55,7 @@ class SimilarListings extends StatelessWidget {
               return Container(
                 width: 280,
                 margin: const EdgeInsets.only(right: AppSpacing.md),
-                child: _buildSimilarCard(context, property),
+                child: _SimilarListingCard(property: property),
               );
             },
           ),
@@ -59,7 +64,20 @@ class SimilarListings extends StatelessWidget {
     );
   }
   
-  Widget _buildSimilarCard(BuildContext context, Property property) {
+}
+
+class _SimilarListingCard extends ConsumerWidget {
+  final Property property;
+
+  const _SimilarListingCard({required this.property});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider).valueOrNull;
+    final isOwnListing = user != null && property.ownerId == user.id;
+    final favorites = ref.watch(favoritesProvider);
+    final isFavorite = favorites.contains(property.id);
+
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(
@@ -95,22 +113,39 @@ class SimilarListings extends StatelessWidget {
                     ),
                   ),
                 ),
-                Positioned(
-                  top: AppSpacing.xs,
-                  right: AppSpacing.xs,
-                  child: IconButton(
-                    icon: const Icon(AppIcons.favoriteBorder, size: 20),
-                    color: AppColors.white,
-                    style: IconButton.styleFrom(
-                      backgroundColor: AppColors.black.withOpacity(0.5),
-                      padding: const EdgeInsets.all(AppSpacing.xs),
+                if (!isOwnListing)
+                  Positioned(
+                    top: AppSpacing.xs,
+                    right: AppSpacing.xs,
+                    child: IconButton(
+                      icon: Icon(
+                        isFavorite ? AppIcons.favorites : AppIcons.favoriteBorder,
+                        size: 20,
+                      ),
+                      color: isFavorite ? AppColors.accent : AppColors.white,
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppColors.black.withValues(alpha: 0.5),
+                        padding: const EdgeInsets.all(AppSpacing.xs),
+                      ),
+                      onPressed: () {
+                        if (isFavorite) {
+                          ref
+                              .read(smartFavoritesProvider.notifier)
+                              .removeOffer(property.id);
+                        } else {
+                          final entry =
+                              ref.read(smartFavoritesProvider).entryFor(property.id);
+                          showSaveToCollectionModal(
+                            context: context,
+                            property: property,
+                            existingEntry: entry,
+                          );
+                        }
+                      },
                     ),
-                    onPressed: () {},
                   ),
-                ),
               ],
             ),
-            
             // Content
             Padding(
               padding: const EdgeInsets.all(AppSpacing.md),

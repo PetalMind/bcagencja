@@ -7,6 +7,7 @@ import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/router/app_router.dart';
 import '../../core/state/providers/auth_provider.dart';
+import '../../features/dashboard/dashboard_strings.dart';
 import '../../widgets/common/custom_button.dart';
 
 /// Menu mobilne dynamiczne względem stanu auth i roli (WDROZENIE_FUNKCJONALNOSCI 4.1):
@@ -137,9 +138,18 @@ class MobileMenu extends ConsumerWidget {
                     _buildMenuItem(
                       context,
                       icon: AppIcons.profile,
-                      title: 'Panel użytkownika',
+                      title: DashboardStrings.titleShort,
                       onTap: () {
                         context.go(AppRouter.dashboard);
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                    _buildMenuItem(
+                      context,
+                      icon: AppIcons.search,
+                      title: 'Przeglądaj oferty',
+                      onTap: () {
+                        context.go(AppRouter.oferty);
                         Navigator.of(context).pop();
                       },
                     ),
@@ -149,6 +159,15 @@ class MobileMenu extends ConsumerWidget {
                       title: 'Ulubione',
                       onTap: () {
                         context.go(AppRouter.dashboardFavorites);
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                    _buildMenuItem(
+                      context,
+                      icon: Icons.real_estate_agent_outlined,
+                      title: 'Moje zgłoszenia',
+                      onTap: () {
+                        context.go(AppRouter.dashboardMySubmissions);
                         Navigator.of(context).pop();
                       },
                     ),

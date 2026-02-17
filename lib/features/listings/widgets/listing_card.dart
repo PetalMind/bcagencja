@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/theme/app_colors.dart';
@@ -6,10 +7,15 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/state/models/property_model.dart';
+import '../../../core/state/providers/auth_provider.dart';
+import '../../../core/state/providers/favorites_provider.dart';
+import '../../../core/state/providers/smart_favorites_provider.dart';
+import '../../../core/accessibility/aria_labels.dart';
 import '../../../widgets/common/watermarked_image.dart';
+import '../../../widgets/common/save_to_collection_modal.dart';
 import '../../property/widgets/property_gallery.dart';
 
-class ListingCard extends StatefulWidget {
+class ListingCard extends ConsumerStatefulWidget {
   final Property property;
 
   const ListingCard({
@@ -18,15 +24,20 @@ class ListingCard extends StatefulWidget {
   });
 
   @override
-  State<ListingCard> createState() => _ListingCardState();
+  ConsumerState<ListingCard> createState() => _ListingCardState();
 }
 
-class _ListingCardState extends State<ListingCard> {
+class _ListingCardState extends ConsumerState<ListingCard> {
   bool _isHovered = false;
   int _cardImageIndex = 0;
 
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(currentUserProvider).valueOrNull;
+    final isOwnListing = user != null && widget.property.ownerId == user.id;
+    final favorites = ref.watch(favoritesProvider);
+    final isFavorite = favorites.contains(widget.property.id);
+
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
@@ -117,19 +128,30 @@ class _ListingCardState extends State<ListingCard> {
                           ),
                         ),
                       ),
-                    Positioned(
-                      top: AppSpacing.xs,
-                      right: AppSpacing.xs,
-                      child: IconButton(
-                        icon: const Icon(AppIcons.favoriteBorder, size: 20),
-                        color: AppColors.white,
-                        style: IconButton.styleFrom(
-                          backgroundColor: AppColors.black.withValues(alpha: 0.5),
-                          padding: const EdgeInsets.all(AppSpacing.xs),
+                    if (!isOwnListing)
+                      Positioned(
+                        top: AppSpacing.xs,
+                        right: AppSpacing.xs,
+                        child: _AnimatedFavoriteHeart(
+                          isFavorite: isFavorite,
+                          onTap: () {
+                            if (isFavorite) {
+                              ref
+                                  .read(smartFavoritesProvider.notifier)
+                                  .removeOffer(widget.property.id);
+                            } else {
+                              final entry = ref
+                                  .read(smartFavoritesProvider)
+                                  .entryFor(widget.property.id);
+                              showSaveToCollectionModal(
+                                context: context,
+                                property: widget.property,
+                                existingEntry: entry,
+                              );
+                            }
+                          },
                         ),
-                        onPressed: () {},
                       ),
-                    ),
                           if (_isHovered && widget.property.images.length > 1) ...[
                             Positioned(
                               left: 0,
@@ -334,6 +356,140 @@ class _ListingCardState extends State<ListingCard> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Serduszko „Zapisz ofertę” z płynną animacją – ta sama funkcja co przycisk na stronie szczegółów.
+class _AnimatedFavoriteHeart extends StatefulWidget {
+  const _AnimatedFavoriteHeart({
+    required this.isFavorite,
+    required this.onTap,
+  });
+
+  final bool isFavorite;
+  final VoidCallback onTap;
+
+  @override
+  State<_AnimatedFavoriteHeart> createState() => _AnimatedFavoriteHeartState();
+}
+
+class _AnimatedFavoriteHeartState extends State<_AnimatedFavoriteHeart>
+    with SingleTickerProviderStateMixin {
+  bool _pressed = false;
+  late AnimationController _popController;
+  late Animation<double> _popScale;
+
+  @override
+  void initState() {
+    super.initState();
+    _popController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 320),
+    );
+    _popScale = Tween<double>(begin: 1.0, end: 1.35)
+        .chain(CurveTween(curve: Curves.easeOutBack))
+        .animate(_popController);
+  }
+
+  @override
+  void didUpdateWidget(covariant _AnimatedFavoriteHeart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.isFavorite && widget.isFavorite) {
+      _popController.forward(from: 0).then((_) {
+        if (mounted) _popController.reverse();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _popController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: widget.isFavorite
+          ? AriaLabels.removeFromFavorites
+          : AriaLabels.addToFavorites,
+        child: Tooltip(
+        message: widget.isFavorite
+            ? AriaLabels.removeFromFavorites
+            : AriaLabels.addToFavorites,
+        waitDuration: const Duration(milliseconds: 500),
+        child: Listener(
+          onPointerDown: (_) => setState(() => _pressed = true),
+          onPointerUp: (_) => setState(() => _pressed = false),
+          onPointerCancel: (_) => setState(() => _pressed = false),
+          child: AnimatedScale(
+            scale: _pressed ? 0.88 : 1.0,
+            duration: const Duration(milliseconds: 120),
+            curve: Curves.easeInOut,
+            child: AnimatedBuilder(
+              animation: _popScale,
+              builder: (context, child) {
+                final popScale =
+                    widget.isFavorite ? _popScale.value : 1.0;
+                return Transform.scale(scale: popScale, child: child);
+              },
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.black.withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.black.withValues(alpha: 0.2),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      widget.onTap();
+                    },
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                    splashColor: AppColors.white.withValues(alpha: 0.3),
+                    highlightColor: AppColors.white.withValues(alpha: 0.15),
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.xs + 2),
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 260),
+                        switchInCurve: Curves.easeOutBack,
+                        switchOutCurve: Curves.easeIn,
+                        transitionBuilder: (child, animation) {
+                          return ScaleTransition(
+                            scale: animation,
+                            child: FadeTransition(
+                              opacity: animation,
+                              child: child,
+                            ),
+                          );
+                        },
+                        child: Icon(
+                          widget.isFavorite
+                              ? AppIcons.favorites
+                              : AppIcons.favoriteBorder,
+                          key: ValueKey<bool>(widget.isFavorite),
+                          size: 22,
+                          color: widget.isFavorite
+                              ? AppColors.accent
+                              : AppColors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

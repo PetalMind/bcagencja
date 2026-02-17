@@ -155,6 +155,10 @@
 
 - **Paczki:** Wystarczy logika w Dart (brak zewnętrznych bibliotek do samego liczenia). Wykresy opcjonalnie: `fl_chart` lub `syncfusion_flutter_charts` (jeśli chcesz wizualizacje).
 
+- **Zapisz kalkulację na e-mail:** Użytkownik może wysłać podsumowanie kalkulacji na podany adres. Dwie ścieżki:
+  - **Wyślij na ten adres** – Cloud Function `sendRoiCalculationEmail` (Firebase) wysyła e-mail z Gmail SMTP. Wymaga ustawienia zmiennych środowiskowych w Cloud Functions: `GMAIL_USER` i `GMAIL_APP_PASSWORD` (hasło aplikacji Gmail). Bez tej konfiguracji funkcja zwraca 503, a aplikacja pokazuje komunikat i sugeruje „Otwórz w programie e-mail”.
+  - **Otwórz w programie e-mail** – `mailto:` z tematem i treścią (działa bez backendu).
+
 ---
 
 ## 8. Widok dla Dyrektorów Obszarów

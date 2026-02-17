@@ -29,12 +29,14 @@ class Step1PropertyType extends StatefulWidget {
   final ListingSubmissionData formData;
   final ValueChanged<ListingSubmissionData> onDataChanged;
   final VoidCallback? onTypeSelected;
+  final bool readOnly;
 
   const Step1PropertyType({
     super.key,
     required this.formData,
     required this.onDataChanged,
     this.onTypeSelected,
+    this.readOnly = false,
   });
 
   @override
@@ -123,7 +125,10 @@ class _Step1PropertyTypeState extends State<Step1PropertyType> {
             style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
           ),
           const SizedBox(height: AppSpacing.lg),
-          if (isMobile) _buildMobileCarousel(context) else _buildDesktopGrid(context),
+          IgnorePointer(
+            ignoring: widget.readOnly,
+            child: isMobile ? _buildMobileCarousel(context) : _buildDesktopGrid(context),
+          ),
           const SizedBox(height: AppSpacing.md),
           Row(
             children: [

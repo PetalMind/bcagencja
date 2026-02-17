@@ -21,7 +21,10 @@ class AppBarCustom extends ConsumerWidget implements PreferredSizeWidget {
   final String? title;
   /// Gdy ustawiony przy showBackButton, wywoływany zamiast context.pop() (np. powrót do dashboardu).
   final VoidCallback? onBackPressed;
+  /// Pełne nadpisanie akcji (gdy ustawione, ignoruje actionsPrepend i domyślne).
   final List<Widget>? actions;
+  /// Akcje dodawane na początku przed domyślnymi (Edytuj itd.).
+  final List<Widget>? actionsPrepend;
 
   const AppBarCustom({
     super.key,
@@ -29,6 +32,7 @@ class AppBarCustom extends ConsumerWidget implements PreferredSizeWidget {
     this.title,
     this.onBackPressed,
     this.actions,
+    this.actionsPrepend,
   });
 
   @override
@@ -87,7 +91,11 @@ class AppBarCustom extends ConsumerWidget implements PreferredSizeWidget {
                 ),
               ),
             ),
-      actions: actions ?? _buildDefaultActions(context, ref, isMobile, isLoggedIn, authLoading, showAddListing, showVerifyAccount),
+      actions: actions ??
+          [
+            ...?actionsPrepend,
+            ..._buildDefaultActions(context, ref, isMobile, isLoggedIn, authLoading, showAddListing, showVerifyAccount),
+          ],
     );
   }
 

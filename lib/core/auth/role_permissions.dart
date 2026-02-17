@@ -122,6 +122,13 @@ class RolePermissions {
       role == UserRoleLevel.director ||
       role == UserRoleLevel.admin;
 
+  /// Czy użytkownik może edytować daną ofertę: admin (dowolna), agent/dyrektor (własna).
+  static bool canEditListing(UserRoleLevel role, String? userId, String listingOwnerId) {
+    if (role == UserRoleLevel.admin) return true;
+    if (userId == null) return false;
+    return canEditOwnListings(role) && listingOwnerId == userId;
+  }
+
   static bool canPublishListings(UserRoleLevel role) =>
       role == UserRoleLevel.director || role == UserRoleLevel.admin;
 

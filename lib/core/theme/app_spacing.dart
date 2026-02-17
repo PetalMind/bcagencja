@@ -35,7 +35,22 @@ class AppSpacing {
   static const double iconMd = 24.0;
   static const double iconLg = 32.0;
   static const double iconXl = 48.0;
-  
+
+  // Touch / accessibility (Material HIG)
+  static const double minTouchTarget = 48.0;
+
+  // Dashboard
+  static const double dashboardTwoColumnMinWidth = 800.0;
+  static const double dashboardSidebarWidth = 320.0;
+  static const double dashboardIconContainerSize = 52.0;
+  static const double dashboardIconSizeCard = 28.0;
+
+  // Avatar (sidebar header)
+  static const double avatarSize = 44.0;
+
+  // Sidebar tile padding (vertical)
+  static const double sidebarTilePaddingV = 10.0;
+
   // Grid columns
   static const int gridColumnsMobile = 4;
   static const int gridColumnsTablet = 8;

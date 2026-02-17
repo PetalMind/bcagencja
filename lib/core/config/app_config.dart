@@ -15,6 +15,11 @@ class AppConfig {
   /// GET z Bearer tokenem; parametry: listingId, documentPath.
   static const String getDocumentWithWatermarkUrl =
       'https://europe-west1-bc-agencja.cloudfunctions.net/getDocumentWithWatermark';
+
+  /// Cloud Function: wysłanie kalkulacji ROI na podany adres e-mail.
+  /// POST, body: { "email": string, "subject": string, "body": string }.
+  static const String sendRoiCalculationEmailUrl =
+      'https://europe-west1-bc-agencja.cloudfunctions.net/sendRoiCalculationEmail';
   
   // Map configuration
   static const String googleMapsApiKey = 'YOUR_GOOGLE_MAPS_API_KEY'; // Replace with actual key
@@ -22,7 +27,14 @@ class AppConfig {
   // Pagination
   static const int listingsPerPage = 20;
   static const int searchResultsPerPage = 24;
-  
+
+  /// Oferty dodane (lub opublikowane) w ostatnich N dniach traktowane są jako „nowe” na dashboardzie.
+  static const int newListingsMaxAgeDays = 14;
+  /// Maksymalna liczba ofert w podglądzie „Nowe oferty” na dashboardzie.
+  static const int newListingsPreviewMaxCount = 5;
+  /// Maksymalna liczba pozycji w „Ostatnio oglądane” (Firestore).
+  static const int recentlyViewedMaxCount = 20;
+
   // Image configuration
   static const int maxImagesPerListing = 20;
   static const int minImagesPerListing = 1;

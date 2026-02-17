@@ -11,6 +11,7 @@ import '../../core/auth/app_user.dart';
 import '../../core/auth/role_permissions.dart';
 import '../../core/state/models/property_model.dart';
 import '../../core/state/providers/auth_provider.dart';
+import '../../core/services/listing_submission_service.dart';
 import '../../widgets/navigation/app_bar_custom.dart';
 import '../../widgets/navigation/bottom_nav_bar.dart';
 import '../../widgets/navigation/mobile_menu.dart';
@@ -18,20 +19,69 @@ import '../../widgets/common/login_required_modal.dart';
 import '../../widgets/common/nda_required_modal.dart';
 import '../../widgets/common/watermarked_image.dart';
 
+final _submissionServiceProvider = Provider<ListingSubmissionService>((ref) => ListingSubmissionService());
+
+/// Provider strumienia ofert z kolekcji listing_submissions – filtry z query params (typ, roiMin, cenaMin, cenaMax).
+final _publishedListingsProvider = StreamProvider.autoDispose
+    .family<List<Property>, ({String? typ, double? roiMin, double? cenaMin, double? cenaMax})>((ref, params) {
+  final service = ref.watch(_submissionServiceProvider);
+  return service.streamSubmissionsForOffers().map((records) {
+    var list = records.map((r) => ListingSubmissionService.propertyFromRecord(r)).toList();
+    if (params.typ != null && params.typ!.isNotEmpty) {
+      list = list.where((p) {
+        if (params.typ == 'land') return p.propertyType == 'land';
+        if (params.typ == 'vacant') {
+          const vacant = ['office', 'retail', 'warehouse', 'industrial', 'hotel'];
+          return vacant.contains(p.propertyType) && (p.tenant == null || p.tenant!.trim().isEmpty);
+        }
+        if (params.typ == 'tenanted') {
+          const tenanted = ['office', 'retail', 'warehouse', 'industrial', 'hotel'];
+          return tenanted.contains(p.propertyType) && p.tenant != null && p.tenant!.trim().isNotEmpty;
+        }
+        return true;
+      }).toList();
+    }
+    if (params.roiMin != null) {
+      list = list.where((p) => (p.roi ?? 0) >= params.roiMin!).toList();
+    }
+    if (params.cenaMin != null) {
+      list = list.where((p) => p.price >= params.cenaMin!).toList();
+    }
+    if (params.cenaMax != null) {
+      list = list.where((p) => p.price <= params.cenaMax!).toList();
+    }
+    return list;
+  });
+});
+
 /// Baza ofert (teasery) – główny punkt wejścia dla inwestorów.
 /// Model 3-stopniowy: anonim (teasery) → Logowanie + NDA (Level 2) → VDR (Level 3).
+/// Dane dynamicznie z Firestore (kolekcja listing_submissions).
 class ListingsResultsPage extends ConsumerWidget {
-  const ListingsResultsPage({super.key});
+  const ListingsResultsPage({
+    super.key,
+    this.typFilter,
+    this.roiMin,
+    this.cenaMin,
+    this.cenaMax,
+  });
 
-  static List<Property> _mockListings() {
-    return List.generate(8, (i) => Property.mock(i));
-  }
+  final String? typFilter;
+  final String? roiMin;
+  final String? cenaMin;
+  final String? cenaMax;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider).valueOrNull;
     final isMobile = MediaQuery.of(context).size.width < AppSpacing.mobileBreakpoint;
-    final listings = _mockListings();
+    final params = (
+      typ: typFilter,
+      roiMin: double.tryParse(roiMin ?? ''),
+      cenaMin: double.tryParse(cenaMin ?? ''),
+      cenaMax: double.tryParse(cenaMax ?? ''),
+    );
+    final listingsAsync = ref.watch(_publishedListingsProvider(params));
     final showNdaBanner = user != null && user.shouldShowNdaBanner;
 
     return Scaffold(
@@ -40,46 +90,112 @@ class ListingsResultsPage extends ConsumerWidget {
         title: 'Baza ofert',
       ),
       drawer: isMobile ? const MobileMenu() : null,
-      body: SingleChildScrollView(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: AppSpacing.containerMaxWidth),
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: isMobile ? AppSpacing.md : AppSpacing.xl,
-                vertical: AppSpacing.xl,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildIntro(context),
-                  if (showNdaBanner) ...[
-                    _NdaBanner(isMobile: isMobile),
-                    SizedBox(height: isMobile ? AppSpacing.md : AppSpacing.lg),
+      body: listingsAsync.when(
+        data: (listings) => SingleChildScrollView(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: AppSpacing.containerMaxWidth),
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isMobile ? AppSpacing.md : AppSpacing.xl,
+                  vertical: AppSpacing.xl,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildIntro(context),
+                    if (showNdaBanner) ...[
+                      _NdaBanner(isMobile: isMobile),
+                      SizedBox(height: isMobile ? AppSpacing.md : AppSpacing.lg),
+                    ],
+                    SizedBox(height: isMobile ? AppSpacing.lg : AppSpacing.xxl),
+                    if (listings.isEmpty)
+                      _buildEmptyState()
+                    else
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: isMobile ? 1 : 2,
+                          mainAxisSpacing: AppSpacing.lg,
+                          crossAxisSpacing: AppSpacing.lg,
+                          childAspectRatio: isMobile ? 1.15 : 0.92,
+                        ),
+                        itemCount: listings.length,
+                        itemBuilder: (context, index) => _TeaserCard(
+                          property: listings[index],
+                          appUser: user,
+                        ),
+                      ),
                   ],
-                  SizedBox(height: isMobile ? AppSpacing.lg : AppSpacing.xxl),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: isMobile ? 1 : (listings.length >= 4 ? 2 : 2),
-                      mainAxisSpacing: AppSpacing.lg,
-                      crossAxisSpacing: AppSpacing.lg,
-                      childAspectRatio: isMobile ? 1.15 : 0.92,
-                    ),
-                    itemCount: listings.length,
-                    itemBuilder: (context, index) => _TeaserCard(
-                      property: listings[index],
-                      appUser: user,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
         ),
+        loading: () => const Center(
+          child: Padding(
+            padding: EdgeInsets.all(AppSpacing.xxl),
+            child: CircularProgressIndicator(color: AppColors.accent),
+          ),
+        ),
+        error: (err, _) {
+          // Log pełnego błędu do konsoli (np. link do utworzenia indeksu Firestore).
+          debugPrint('=== Błąd ofert (skopiuj link z komunikatu poniżej) ===');
+          debugPrint(err.toString());
+          return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.xxl),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.error_outline, size: 48, color: AppColors.error),
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  'Błąd ładowania ofert. Sprawdź połączenie z internetem.',
+                  style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                Text(
+                  err.toString(),
+                  style: AppTextStyles.bodySmall.copyWith(color: AppColors.grey500),
+                  textAlign: TextAlign.center,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        );
+        },
       ),
       bottomNavigationBar: isMobile ? const BottomNavBar(currentIndex: 0) : null,
+    );
+  }
+
+  static Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.xxl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.apartment_outlined, size: 64, color: AppColors.grey400),
+            const SizedBox(height: AppSpacing.lg),
+            Text(
+              'Brak zgłoszeń',
+              style: AppTextStyles.titleMedium.copyWith(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Oferty pojawią się tutaj po dodaniu zgłoszeń w formularzu „Chcę sprzedać”.',
+              style: AppTextStyles.bodySmall.copyWith(color: AppColors.grey500),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
     );
   }
 

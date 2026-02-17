@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 /// Odniesienie do dokumentu VDR (ścieżka w Storage + nazwa do wyświetlenia).
 class VdrDocumentRef {
   const VdrDocumentRef({required this.name, required this.storagePath});
@@ -156,6 +158,159 @@ class Property {
   // Compatibility properties for widgets that still use old names
   int get rooms => floors; // For backward compatibility
   List<String> get amenities => features; // For backward compatibility
+
+  /// Parsuje dokument Firestore (kolekcja listings) na Property.
+  /// Zwraca null, jeśli dane są niekompletne lub nieprawidłowe.
+  static Property? fromFirestore(String id, Map<String, dynamic> data) {
+    try {
+      final title = data['title'] as String? ?? '';
+      final description = data['description'] as String? ?? '';
+      if (title.isEmpty) return null;
+      final price = _toDouble(data['price']) ?? 0.0;
+      final area = _toDouble(data['area']) ?? 0.0;
+      final floors = _toInt(data['floors']) ?? 0;
+      final propertyType = data['propertyType'] as String? ?? 'office';
+      final transactionType = data['transactionType'] as String? ?? 'sale';
+      final location = data['location'] as String? ?? '';
+      final city = data['city'] as String? ?? '';
+      final ownerId = data['ownerId'] as String? ?? '';
+      final images = _toStringList(data['images']);
+      final createdAt = _toDateTime(data['createdAt']) ?? DateTime.now();
+      final updatedAt = _toDateTime(data['updatedAt']) ?? createdAt;
+      final vdrList = data['vdrDocuments'];
+      final vdrDocsRaw = vdrList is List ? vdrList : <dynamic>[];
+      final vdrDocuments = vdrDocsRaw
+          .where((e) => e is Map && e['name'] != null && e['storagePath'] != null)
+          .map((e) {
+        final m = e as Map;
+        return VdrDocumentRef(name: m['name'] as String, storagePath: m['storagePath'] as String);
+      })
+          .toList();
+      return Property(
+        id: id,
+        title: title,
+        description: description,
+        price: price,
+        pricePerSqm: area > 0 ? price / area : null,
+        area: area,
+        floors: floors,
+        parkingSpaces: _toInt(data['parkingSpaces']),
+        propertyType: propertyType,
+        transactionType: transactionType,
+        location: location.isNotEmpty ? location : city,
+        city: city,
+        district: data['district'] as String?,
+        street: data['street'] as String?,
+        latitude: _toDouble(data['latitude']),
+        longitude: _toDouble(data['longitude']),
+        images: images,
+        mainImage: data['mainImage'] as String? ?? (images.isNotEmpty ? images.first : null),
+        features: _toStringList(data['features']),
+        yearBuilt: _toInt(data['yearBuilt']),
+        condition: data['condition'] as String?,
+        buildingClass: data['buildingClass'] as String?,
+        hasLoadingDock: data['hasLoadingDock'] == true,
+        hasParking: data['hasParking'] == true,
+        hasElevator: data['hasElevator'] == true,
+        hasSecurity: data['hasSecurity'] == true,
+        hasReception: data['hasReception'] == true,
+        ceilingHeight: _toDouble(data['ceilingHeight']),
+        plotArea: _toDouble(data['plotArea']),
+        zoning: data['zoning'] as String?,
+        roi: _toDouble(data['roi']),
+        currentRent: _toDouble(data['currentRent']),
+        tenant: data['tenant'] as String?,
+        leaseUntil: _toDateTime(data['leaseUntil']),
+        verified: data['verified'] == true,
+        promoted: data['promoted'] == true,
+        ownerId: ownerId.isNotEmpty ? ownerId : 'unknown',
+        ownerName: data['ownerName'] as String?,
+        ownerPhone: data['ownerPhone'] as String?,
+        ownerEmail: data['ownerEmail'] as String?,
+        createdAt: createdAt,
+        updatedAt: updatedAt,
+        views: _toInt(data['views']) ?? 0,
+        favorites: _toInt(data['favorites']) ?? 0,
+        vdrDocuments: vdrDocuments,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static double? _toDouble(dynamic v) {
+    if (v == null) return null;
+    if (v is num) return v.toDouble();
+    if (v is String) return double.tryParse(v);
+    return null;
+  }
+
+  static int? _toInt(dynamic v) {
+    if (v == null) return null;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    if (v is String) return int.tryParse(v);
+    return null;
+  }
+
+  static DateTime? _toDateTime(dynamic v) {
+    if (v == null) return null;
+    if (v is Timestamp) return v.toDate();
+    if (v is DateTime) return v;
+    return null;
+  }
+
+  static List<String> _toStringList(dynamic v) {
+    if (v == null || v is! List) return const [];
+    return v.map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList();
+  }
+
+  /// Zwraca mapę pól do aktualizacji w Firestore (update). Nie nadpisuje: status, createdAt, views, favorites.
+  Map<String, dynamic> toFirestoreUpdate() {
+    return {
+      'title': title,
+      'description': description,
+      'price': price,
+      'area': area,
+      'floors': floors,
+      'parkingSpaces': parkingSpaces,
+      'propertyType': propertyType,
+      'transactionType': transactionType,
+      'location': location,
+      'city': city,
+      'district': district,
+      'street': street,
+      'latitude': latitude,
+      'longitude': longitude,
+      'images': images,
+      'mainImage': mainImage ?? (images.isNotEmpty ? images.first : null),
+      'features': features,
+      'yearBuilt': yearBuilt,
+      'condition': condition,
+      'buildingClass': buildingClass,
+      'hasLoadingDock': hasLoadingDock,
+      'hasParking': hasParking,
+      'hasElevator': hasElevator,
+      'hasSecurity': hasSecurity,
+      'hasReception': hasReception,
+      'ceilingHeight': ceilingHeight,
+      'plotArea': plotArea,
+      'zoning': zoning,
+      'roi': roi,
+      'currentRent': currentRent,
+      'tenant': tenant,
+      'leaseUntil': leaseUntil != null ? Timestamp.fromDate(leaseUntil!) : null,
+      'verified': verified,
+      'promoted': promoted,
+      'ownerName': ownerName,
+      'ownerPhone': ownerPhone,
+      'ownerEmail': ownerEmail,
+      'updatedAt': Timestamp.fromDate(DateTime.now()),
+      'vdrDocuments': vdrDocuments
+          .map((d) => {'name': d.name, 'storagePath': d.storagePath})
+          .toList(),
+    };
+  }
 
   /// Dla zapisanych ofert: zwraca Property z mocków gdy id ma postać "property_N".
   /// Gdy będzie backend (Firestore), można podmienić na pobieranie po id.

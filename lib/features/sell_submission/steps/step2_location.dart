@@ -1,26 +1,28 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/google_places_service.dart';
+import '../input_formatters.dart';
 import '../listing_submission_model.dart';
 
-/// Krok 2: Lokalizacja – Google Places autocomplete (dokładny adres) + "Użyj mojej lokalizacji" + ręczne miasto/województwo.
-/// Po wyborze adresu z listy widok sam przechodzi do kroku 3.
+/// Krok 2: Lokalizacja – pola adresowe (ulica, numer domu, lokalu, kod, miejscowość) + autocomplete + "Użyj mojej lokalizacji".
 class Step2Location extends StatefulWidget {
   final ListingSubmissionData formData;
   final ValueChanged<ListingSubmissionData> onDataChanged;
-  /// Wywołane po wyborze dokładnego adresu z Google – rodzic może przejść do następnego kroku.
   final VoidCallback? onAddressSelected;
+  final bool readOnly;
 
   const Step2Location({
     super.key,
     required this.formData,
     required this.onDataChanged,
     this.onAddressSelected,
+    this.readOnly = false,
   });
 
   @override
@@ -28,7 +30,12 @@ class Step2Location extends StatefulWidget {
 }
 
 class _Step2LocationState extends State<Step2Location> {
-  late TextEditingController _addressController;
+  late TextEditingController _streetController;
+  late TextEditingController _buildingNumberController;
+  late TextEditingController _apartmentNumberController;
+  late TextEditingController _postalCodeController;
+  late TextEditingController _localityController;
+  late TextEditingController _autocompleteController;
   bool _isResolvingLocation = false;
   bool _isLoadingDetails = false;
   List<PlacePrediction> _predictions = [];
@@ -47,26 +54,36 @@ class _Step2LocationState extends State<Step2Location> {
   @override
   void initState() {
     super.initState();
-    _addressController = TextEditingController(text: widget.formData.formattedAddress ?? widget.formData.city ?? '');
+    _streetController = TextEditingController(text: widget.formData.street ?? '');
+    _buildingNumberController = TextEditingController(text: widget.formData.buildingNumber ?? '');
+    _apartmentNumberController = TextEditingController(text: widget.formData.apartmentNumber ?? '');
+    _postalCodeController = TextEditingController(text: widget.formData.postalCode ?? '');
+    _localityController = TextEditingController(text: widget.formData.locality ?? '');
+    _autocompleteController = TextEditingController();
   }
 
   @override
   void dispose() {
     _debounceTimer?.cancel();
-    _addressController.dispose();
+    _streetController.dispose();
+    _buildingNumberController.dispose();
+    _apartmentNumberController.dispose();
+    _postalCodeController.dispose();
+    _localityController.dispose();
+    _autocompleteController.dispose();
     super.dispose();
   }
 
-  void _syncToFormDataFromFields() {
-    final t = _addressController.text.trim();
-    if (t.isNotEmpty && widget.formData.formattedAddress == null) {
-      widget.formData.city = t;
-    }
+  void _syncToFormData() {
+    widget.formData.street = _streetController.text.trim().isEmpty ? null : _streetController.text.trim();
+    widget.formData.buildingNumber = _buildingNumberController.text.trim().isEmpty ? null : _buildingNumberController.text.trim();
+    widget.formData.apartmentNumber = _apartmentNumberController.text.trim().isEmpty ? null : _apartmentNumberController.text.trim();
+    widget.formData.postalCode = _postalCodeController.text.trim().isEmpty ? null : _postalCodeController.text.trim();
+    widget.formData.locality = _localityController.text.trim().isEmpty ? null : _localityController.text.trim().toUpperCase();
     widget.onDataChanged(widget.formData);
   }
 
-  void _onAddressTextChanged(String value) {
-    _syncToFormDataFromFields();
+  void _onAutocompleteTextChanged(String value) {
     _debounceTimer?.cancel();
     if (value.trim().length < 2) {
       setState(() {
@@ -94,6 +111,25 @@ class _Step2LocationState extends State<Step2Location> {
     });
   }
 
+  /// Uzupełnia pola adresowe z PlaceDetails. Miejscowość w WIELKICH LITERACH.
+  void _applyPlaceDetails(PlaceDetails details) {
+    final streetName = details.street?.trim() ?? '';
+    final street = streetName.isNotEmpty ? (streetName.toLowerCase().startsWith('ul.') ? streetName : 'ul. $streetName') : null;
+    widget.formData.street = street;
+    widget.formData.buildingNumber = details.streetNumber?.trim().isEmpty == true ? null : details.streetNumber?.trim();
+    widget.formData.postalCode = details.postalCode?.trim().isEmpty == true ? null : details.postalCode?.trim();
+    widget.formData.locality = details.locality?.trim().isEmpty == true ? null : details.locality!.trim().toUpperCase();
+    widget.formData.formattedAddress = details.formattedAddress;
+    widget.formData.voivodeship = _normalizeVoivodeship(details.administrativeArea);
+    widget.formData.latitude = details.latitude;
+    widget.formData.longitude = details.longitude;
+    _streetController.text = widget.formData.street ?? '';
+    _buildingNumberController.text = widget.formData.buildingNumber ?? '';
+    _postalCodeController.text = widget.formData.postalCode ?? '';
+    _localityController.text = widget.formData.locality ?? '';
+    _syncToFormData();
+  }
+
   Future<void> _onSelectPlace(PlacePrediction prediction) async {
     _hideOverlay();
     setState(() => _isLoadingDetails = true);
@@ -101,17 +137,7 @@ class _Step2LocationState extends State<Step2Location> {
     if (!mounted) return;
     setState(() => _isLoadingDetails = false);
     if (details == null) return;
-
-    widget.formData.formattedAddress = details.formattedAddress;
-    final parts = details.formattedAddress.split(',');
-    widget.formData.city = details.locality?.trim().isNotEmpty == true
-        ? details.locality
-        : (parts.isNotEmpty ? parts.first.trim() : details.formattedAddress);
-    widget.formData.voivodeship = _normalizeVoivodeship(details.administrativeArea);
-    widget.formData.latitude = details.latitude;
-    widget.formData.longitude = details.longitude;
-    _addressController.text = details.formattedAddress;
-    widget.onDataChanged(widget.formData);
+    _applyPlaceDetails(details);
     widget.onAddressSelected?.call();
   }
 
@@ -173,14 +199,14 @@ class _Step2LocationState extends State<Step2Location> {
       if (details == null) {
         widget.formData.latitude = position.latitude;
         widget.formData.longitude = position.longitude;
-        widget.formData.city = 'Twoja lokalizacja';
-        _addressController.text = 'Współrzędne: ${position.latitude.toStringAsFixed(5)}, ${position.longitude.toStringAsFixed(5)}';
-        widget.onDataChanged(widget.formData);
+        widget.formData.locality = 'LOKALIZACJA';
+        _localityController.text = 'LOKALIZACJA';
+        _syncToFormData();
         widget.onAddressSelected?.call();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Lokalizacja zapisana. Uzupełnij województwo jeśli potrzeba.'),
+              content: Text('Lokalizacja zapisana. Uzupełnij adres i województwo.'),
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -188,21 +214,12 @@ class _Step2LocationState extends State<Step2Location> {
         return;
       }
 
-      widget.formData.formattedAddress = details.formattedAddress;
-      final parts = details.formattedAddress.split(',');
-      widget.formData.city = details.locality?.trim().isNotEmpty == true
-          ? details.locality
-          : (parts.isNotEmpty ? parts.first.trim() : details.formattedAddress);
-      widget.formData.voivodeship = _normalizeVoivodeship(details.administrativeArea);
-      widget.formData.latitude = details.latitude;
-      widget.formData.longitude = details.longitude;
-      _addressController.text = details.formattedAddress;
-      widget.onDataChanged(widget.formData);
+      _applyPlaceDetails(details);
       widget.onAddressSelected?.call();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Lokalizacja ustawiona – przechodzimy dalej.'),
+            content: Text('Lokalizacja ustawiona – sprawdź pola i przejdź dalej.'),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -240,12 +257,12 @@ class _Step2LocationState extends State<Step2Location> {
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                'Wpisz dokładny adres – po wyborze z listy przejdziemy dalej.',
+                'Wypełnij adres (pola podstawowe są obowiązkowe). Możesz użyć autouzupełniania lub swojej lokalizacji.',
                 style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
               ),
               const SizedBox(height: AppSpacing.xl),
               OutlinedButton.icon(
-                onPressed: _isResolvingLocation ? null : _useMyLocation,
+                onPressed: widget.readOnly || _isResolvingLocation ? null : _useMyLocation,
                 icon: _isResolvingLocation
                     ? const SizedBox(
                         width: 20,
@@ -260,20 +277,20 @@ class _Step2LocationState extends State<Step2Location> {
               ),
               const SizedBox(height: AppSpacing.lg),
               Text(
-                'LUB wpisz adres (autouzupełnianie):',
+                'LUB wyszukaj adres (autouzupełnianie):',
                 style: AppTextStyles.labelMedium.copyWith(color: AppColors.textSecondary),
               ),
               const SizedBox(height: AppSpacing.sm),
               CompositedTransformTarget(
                 link: _layerLink,
                 child: TextFormField(
-                  controller: _addressController,
-                  onChanged: _onAddressTextChanged,
-                  onTap: () {
+                  controller: _autocompleteController,
+                  readOnly: widget.readOnly,
+                  onChanged: widget.readOnly ? null : _onAutocompleteTextChanged,
+                  onTap: widget.readOnly ? null : () {
                     if (_predictions.isNotEmpty) setState(() => _showOverlay = true);
                   },
                   decoration: InputDecoration(
-                    labelText: 'Adres lub miejscowość *',
                     hintText: 'np. Poznań, ul. Półwiejska 1',
                     prefixIcon: _isLoadingDetails
                         ? const Padding(
@@ -284,23 +301,108 @@ class _Step2LocationState extends State<Step2Location> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             ),
                           )
-                        : const Icon(Icons.location_on_outlined),
+                        : const Icon(Icons.search),
                     border: const OutlineInputBorder(),
                     filled: true,
                     fillColor: AppColors.white,
                   ),
-                  textCapitalization: TextCapitalization.words,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              Text(
+                'Pola podstawowe (obowiązkowe)',
+                style: AppTextStyles.labelLarge.copyWith(color: AppColors.primaryDark),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              TextFormField(
+                controller: _streetController,
+                readOnly: widget.readOnly,
+                onChanged: (_) => _syncToFormData(),
+                maxLength: kMaxStreetLength,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                  labelText: 'Ulica *',
+                  hintText: 'np. ul. Piotrkowska',
+                  counterText: '',
+                  prefixIcon: Icon(Icons.signpost_outlined),
+                  border: OutlineInputBorder(),
+                  filled: true,
+                  fillColor: AppColors.white,
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
+              TextFormField(
+                controller: _buildingNumberController,
+                readOnly: widget.readOnly,
+                onChanged: (_) => _syncToFormData(),
+                maxLength: kMaxBuildingNumberLength,
+                decoration: const InputDecoration(
+                  labelText: 'Numer domu *',
+                  hintText: 'np. 15',
+                  counterText: '',
+                  border: OutlineInputBorder(),
+                  filled: true,
+                  fillColor: AppColors.white,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextFormField(
+                controller: _apartmentNumberController,
+                readOnly: widget.readOnly,
+                onChanged: (_) => _syncToFormData(),
+                maxLength: kMaxApartmentNumberLength,
+                decoration: const InputDecoration(
+                  labelText: 'Numer lokalu/mieszkania',
+                  hintText: 'opcjonalnie',
+                  counterText: '',
+                  border: OutlineInputBorder(),
+                  filled: true,
+                  fillColor: AppColors.white,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextFormField(
+                controller: _postalCodeController,
+                readOnly: widget.readOnly,
+                onChanged: (_) => _syncToFormData(),
+                maxLength: kPostalCodeLength,
+                inputFormatters: [postalCodeInputFormatter, LengthLimitingTextInputFormatter(kPostalCodeLength)],
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Kod pocztowy *',
+                  hintText: 'XX-XXX',
+                  counterText: '',
+                  border: OutlineInputBorder(),
+                  filled: true,
+                  fillColor: AppColors.white,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextFormField(
+                controller: _localityController,
+                readOnly: widget.readOnly,
+                onChanged: (_) => _syncToFormData(),
+                maxLength: kMaxLocalityLength,
+                textCapitalization: TextCapitalization.characters,
+                style: const TextStyle(fontFamily: 'monospace'),
+                decoration: const InputDecoration(
+                  labelText: 'Miejscowość *',
+                  hintText: 'WIELKIMI LITERAMI (standard Poczty Polskiej)',
+                  counterText: '',
+                  border: OutlineInputBorder(),
+                  filled: true,
+                  fillColor: AppColors.white,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
               DropdownButtonFormField<String>(
                 value: widget.formData.voivodeship != null &&
                         _voivodeships.contains(widget.formData.voivodeship!.toLowerCase())
                     ? widget.formData.voivodeship!.toLowerCase()
                     : null,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: 'Województwo',
-                  border: const OutlineInputBorder(),
+                  border: OutlineInputBorder(),
                   filled: true,
                   fillColor: AppColors.white,
                 ),
@@ -313,7 +415,7 @@ class _Step2LocationState extends State<Step2Location> {
                     ),
                   ),
                 ],
-                onChanged: (v) {
+                onChanged: widget.readOnly ? null : (v) {
                   widget.formData.voivodeship = v;
                   widget.onDataChanged(widget.formData);
                   setState(() {});
@@ -335,7 +437,7 @@ class _Step2LocationState extends State<Step2Location> {
             ],
           ),
         ),
-        if (_showOverlay && _predictions.isNotEmpty)
+        if (!widget.readOnly && _showOverlay && _predictions.isNotEmpty)
           Positioned.fill(
             child: GestureDetector(
               onTap: _hideOverlay,
