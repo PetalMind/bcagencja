@@ -15,7 +15,7 @@ final propertyDetailProvider =
   if (id.isEmpty) return Stream.value(null);
   final listService = ref.watch(listingsServiceProvider);
   final subService = ref.watch(listingSubmissionServiceProvider);
-  final ownerId = ref.watch(currentUserProvider).valueOrNull?.id;
+  final ownerId = ref.watch(currentUserProvider).asData?.value?.id;
   return listService
       .streamListingById(id, ownerIdToAllowDraft: ownerId)
       .asyncExpand((p) async* {
@@ -30,7 +30,7 @@ final propertyDetailProvider =
 
 /// Stream opublikowanych ofert partnera/agenta (ownerId == currentUser.id).
 final partnerListingsStreamProvider = StreamProvider<List<Property>>((ref) {
-  final user = ref.watch(currentUserProvider).valueOrNull;
+  final user = ref.watch(currentUserProvider).asData?.value;
   if (user?.id == null || user!.id.isEmpty) return Stream.value([]);
   final service = ref.watch(listingsServiceProvider);
   return service.streamPartnerListings(ownerId: user.id);
@@ -38,19 +38,19 @@ final partnerListingsStreamProvider = StreamProvider<List<Property>>((ref) {
 
 /// Liczba ogłoszeń partnera/agenta (moje oferty). Źródło: Firestore.
 final partnerListingsCountProvider = Provider<int>((ref) {
-  final list = ref.watch(partnerListingsStreamProvider).valueOrNull;
+  final list = ref.watch(partnerListingsStreamProvider).asData?.value;
   return list?.length ?? 0;
 });
 
 /// Statystyki partnera: suma wyświetleń wszystkich ofert (ostatnie 30 dni – w Firestore to pole to łączna liczba).
 final partnerStatsViewsProvider = Provider<int>((ref) {
-  final list = ref.watch(partnerListingsStreamProvider).valueOrNull ?? [];
+  final list = ref.watch(partnerListingsStreamProvider).asData?.value ?? [];
   return list.fold<int>(0, (sum, p) => sum + p.views);
 });
 
 /// Statystyki partnera: suma ulubionych (zapisanych przez użytkowników) dla wszystkich ofert.
 final partnerStatsFavoritesProvider = Provider<int>((ref) {
-  final list = ref.watch(partnerListingsStreamProvider).valueOrNull ?? [];
+  final list = ref.watch(partnerListingsStreamProvider).asData?.value ?? [];
   return list.fold<int>(0, (sum, p) => sum + p.favorites);
 });
 
@@ -62,7 +62,7 @@ final partnerStatsContactCountProvider = Provider<int>((ref) {
 
 /// Najpopularniejsze ogłoszenia partnera (posortowane po wyświetleniach, max 10).
 final partnerTopListingsByViewsProvider = Provider<List<Property>>((ref) {
-  final list = ref.watch(partnerListingsStreamProvider).valueOrNull ?? [];
+  final list = ref.watch(partnerListingsStreamProvider).asData?.value ?? [];
   final sorted = List<Property>.from(list)
     ..sort((a, b) => b.views.compareTo(a.views));
   return sorted.take(10).toList();
@@ -87,7 +87,7 @@ final listingSubmissionServiceProvider = Provider<ListingSubmissionService>((ref
 
 /// Liczba zgłoszeń użytkownika (Moje zgłoszenia). Stream z Firestore.
 final mySubmissionsCountProvider = StreamProvider<int>((ref) {
-  final user = ref.watch(currentUserProvider).valueOrNull;
+  final user = ref.watch(currentUserProvider).asData?.value;
   if (user?.id == null || user!.id.isEmpty) return Stream.value(0);
   final service = ref.watch(listingSubmissionServiceProvider);
   return service.streamSubmissionsByUser(user.id).map((list) => list.length);
@@ -147,7 +147,7 @@ class RecentlyViewedItem {
 /// Ostatnio oglądane oferty – stream z Firestore. Puste dla niezalogowanego.
 final recentlyViewedPreviewProvider =
     StreamProvider<List<RecentlyViewedItem>>((ref) {
-  final user = ref.watch(currentUserProvider).valueOrNull;
+  final user = ref.watch(currentUserProvider).asData?.value;
   if (user == null) return Stream.value([]);
   final service = ref.watch(recentlyViewedServiceProvider);
   return service.watchRecentlyViewed(user.id).map((entries) =>

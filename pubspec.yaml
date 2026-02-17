@@ -36,20 +36,20 @@ dependencies:
   cupertino_icons: ^1.0.8
   
   # Routing and navigation
-  go_router: ^14.6.2
+  go_router: ^17.1.0
   
   # State management
-  flutter_riverpod: ^2.6.1
+  flutter_riverpod: ^3.2.1
   
   # Google Fonts
-  google_fonts: ^6.2.1
+  google_fonts: ^8.0.1
   
   # Maps and location
   google_maps_flutter: ^2.10.0
   google_maps_flutter_web: ^0.5.10
-  flutter_map: ^7.0.2
+  flutter_map: ^8.2.2
   latlong2: ^0.9.1
-  geolocator: ^13.0.2
+  geolocator: ^14.0.2
   
   # Image handling
   image_picker: ^1.1.2
@@ -59,16 +59,16 @@ dependencies:
   url_launcher: ^6.3.1
   shared_preferences: ^2.3.3
   flutter_staggered_grid_view: ^0.7.0
-  flutter_slidable: ^3.1.1
+  flutter_slidable: ^4.0.3
   
   # HTTP client
   http: ^1.2.2
   
   # Intl for formatting
-  intl: ^0.19.0
+  intl: ^0.20.2
 
   # Share
-  share_plus: ^10.0.2
+  share_plus: ^12.0.1
 
   # Sidebar / drawer
   sidebarx: ^0.17.2
@@ -79,21 +79,21 @@ dependencies:
 
   # File picking and drag & drop
   cross_file: ^0.3.4+10
-  file_picker: ^8.1.4
+  file_picker: ^10.3.10
   super_drag_and_drop: ^0.9.1
 
   # Charts (kalkulator ROI - wykres DCF)
-  fl_chart: ^0.69.0
+  fl_chart: ^1.1.1
 
   # Firebase (podstawa pod auth, Firestore, Storage)
-  firebase_core: ^3.8.1
-  firebase_auth: ^5.3.4
-  cloud_firestore: ^5.5.2
-  firebase_storage: ^12.3.6
+  firebase_core: ^4.4.0
+  firebase_auth: ^6.1.4
+  cloud_firestore: ^6.1.2
+  firebase_storage: ^13.0.6
 
   # Social auth
-  google_sign_in: ^6.2.2
-  sign_in_with_apple: ^6.1.3
+  google_sign_in: ^7.2.0
+  sign_in_with_apple: ^7.0.1
   crypto: ^3.0.3
 
 dev_dependencies:

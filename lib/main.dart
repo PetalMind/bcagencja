@@ -69,8 +69,8 @@ class _MyAppState extends ConsumerState<MyApp> {
   @override
   Widget build(BuildContext context) {
     ref.listen(currentUserProvider, (prev, next) {
-      final prevId = prev?.valueOrNull?.id;
-      final nextId = next?.valueOrNull?.id;
+      final prevId = prev?.asData?.value?.id;
+      final nextId = next?.asData?.value?.id;
       if (prevId != nextId) {
         ref.read(favoritesProvider.notifier).initialize();
         ref.read(smartFavoritesProvider.notifier).initialize();

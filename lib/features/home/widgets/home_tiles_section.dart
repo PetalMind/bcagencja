@@ -114,7 +114,7 @@ class _SellPropertyTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(currentUserProvider).valueOrNull;
+    final user = ref.watch(currentUserProvider).asData?.value;
     final canAccess = _canAccessSell(user);
     final isMobile = MediaQuery.of(context).size.width < AppSpacing.mobileBreakpoint;
 

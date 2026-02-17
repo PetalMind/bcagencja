@@ -26,7 +26,7 @@ class FavoritesNotifier extends Notifier<Set<String>> {
     return {};
   }
 
-  String? get _currentUserId => ref.read(currentUserProvider).valueOrNull?.id;
+  String? get _currentUserId => ref.read(currentUserProvider).asData?.value?.id;
 
   Future<Set<String>> _loadFromDisk(String? userId) async {
     final prefs = ref.read(sharedPreferencesProvider);

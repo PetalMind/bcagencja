@@ -39,7 +39,7 @@ class MySubmissionDetailPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(currentUserProvider).valueOrNull;
+    final user = ref.watch(currentUserProvider).asData?.value;
     final uid = user?.id;
     final service = ref.watch(_submissionServiceProvider);
 

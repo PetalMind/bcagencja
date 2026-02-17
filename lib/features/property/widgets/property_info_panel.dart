@@ -320,7 +320,7 @@ class _SaveOfferButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(currentUserProvider).valueOrNull;
+    final user = ref.watch(currentUserProvider).asData?.value;
     if (user != null && property.ownerId == user.id) {
       return const SizedBox.shrink();
     }

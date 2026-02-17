@@ -43,11 +43,11 @@ final currentUserProvider = StreamProvider<AppUser?>((ref) {
 
 /// Skrót: czy użytkownik jest zalogowany.
 final isLoggedInProvider = Provider<bool>((ref) {
-  return ref.watch(currentUserProvider).valueOrNull != null;
+  return ref.watch(currentUserProvider).asData?.value != null;
 });
 
 /// Skrót: czy użytkownik ma dostęp do panelu agenta/dyrektora.
 final hasPartnerDashboardProvider = Provider<bool>((ref) {
-  final user = ref.watch(currentUserProvider).valueOrNull;
+  final user = ref.watch(currentUserProvider).asData?.value;
   return user?.hasPartnerDashboard ?? false;
 });

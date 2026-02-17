@@ -71,9 +71,12 @@ service cloud.firestore {
 
     // --- listings: oferty nieruchomości ---
     // Odczyt: admin (wszystkie), każdy (status == 'published'), lub właściciel (ownerId == uid).
+    // !exists(...) – dopuszcza odczyt nieistniejącego dokumentu (provider najpierw sprawdza listings,
+    // potem fallback do listing_submissions; ID z bazy ofert to submissionId, nie listingId).
     // Zapis: agent/dyrektor/admin (wg polityki biznesowej).
     match /listings/{listingId} {
-      allow read: if isAdmin()
+      allow read: if !exists(/databases/$(database)/documents/listings/$(listingId))
+        || isAdmin()
         || resource.data.status == 'published'
         || resource.data.ownerId == request.auth.uid;
       allow create, update, delete: if isAuthenticated();

@@ -141,7 +141,7 @@ class _CompleteOAuthRegistrationPageState
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(currentUserProvider).valueOrNull;
+    final user = ref.watch(currentUserProvider).asData?.value;
     final isMobile =
         MediaQuery.of(context).size.width < AppSpacing.mobileBreakpoint;
 

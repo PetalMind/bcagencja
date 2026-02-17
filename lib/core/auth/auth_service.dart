@@ -8,8 +8,10 @@ import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+
+import 'sign_in_google_native.dart'
+    if (dart.library.html) 'sign_in_google_stub.dart' as sign_in_google;
 
 import 'app_user.dart';
 
@@ -143,35 +145,50 @@ class AuthService {
   }
 
   /// Logowanie przez Google.
+  /// Na web: najpierw signInWithPopup (wynik od razu w tej samej stronie, pewne przekierowanie po logowaniu).
+  /// Gdy popup jest zablokowany – fallback na signInWithRedirect (wynik w getRedirectResult przy powrocie).
   Future<UserCredential?> signInWithGoogle() async {
     if (kIsWeb) {
       final googleProvider = GoogleAuthProvider();
-      await _auth.signInWithRedirect(googleProvider);
-      return null; // redirect – wynik w getRedirectResult przy powrocie
+      try {
+        final userCred = await _auth.signInWithPopup(googleProvider);
+        if (userCred.user != null) {
+          await _ensureUserProfile(userCred.user!);
+        }
+        return userCred;
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'auth/popup-blocked' || e.code == 'auth/cancelled-popup-request') {
+          await _auth.signInWithRedirect(googleProvider);
+          return null; // redirect – wynik w getRedirectResult przy powrocie
+        }
+        rethrow;
+      }
     }
-    final googleUser = await GoogleSignIn().signIn();
-    if (googleUser == null) {
-      throw FirebaseAuthException(
-        code: 'sign_in_canceled',
-        message: 'Logowanie przez Google zostało anulowane',
-      );
+    final userCred = await sign_in_google.signInWithGoogleNative(_auth);
+    if (userCred != null) {
+      await _ensureUserProfile(userCred.user!);
     }
-    final googleAuth = await googleUser.authentication;
-    final credential = GoogleAuthProvider.credential(
-      accessToken: googleAuth.accessToken,
-      idToken: googleAuth.idToken,
-    );
-    final userCred = await _auth.signInWithCredential(credential);
-    await _ensureUserProfile(userCred.user!);
     return userCred;
   }
 
   /// Logowanie przez Apple.
+  /// Na web: najpierw signInWithPopup; przy zablokowanym popupie – signInWithRedirect.
   Future<UserCredential?> signInWithApple() async {
     if (kIsWeb) {
       final appleProvider = AppleAuthProvider();
-      await _auth.signInWithRedirect(appleProvider);
-      return null; // redirect – wynik w getRedirectResult przy powrocie
+      try {
+        final userCred = await _auth.signInWithPopup(appleProvider);
+        if (userCred.user != null) {
+          await _ensureUserProfile(userCred.user!);
+        }
+        return userCred;
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'auth/popup-blocked' || e.code == 'auth/cancelled-popup-request') {
+          await _auth.signInWithRedirect(appleProvider);
+          return null;
+        }
+        rethrow;
+      }
     }
     final rawNonce = _generateNonce();
     final hashedNonce = _sha256(rawNonce);

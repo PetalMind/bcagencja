@@ -41,7 +41,7 @@ class _RoiSaveToEmailModalState extends ConsumerState<RoiSaveToEmailModal> {
   }
 
   void _prefillEmail() {
-    final user = ref.read(currentUserProvider).valueOrNull;
+    final user = ref.read(currentUserProvider).asData?.value;
     if (user?.email != null && user!.email!.trim().isNotEmpty && _emailController.text.isEmpty) {
       _emailController.text = user.email!;
     }

@@ -33,7 +33,7 @@ class _ListingCardState extends ConsumerState<ListingCard> {
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(currentUserProvider).valueOrNull;
+    final user = ref.watch(currentUserProvider).asData?.value;
     final isOwnListing = user != null && widget.property.ownerId == user.id;
     final favorites = ref.watch(favoritesProvider);
     final isFavorite = favorites.contains(widget.property.id);

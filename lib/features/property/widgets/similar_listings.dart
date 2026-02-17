@@ -73,7 +73,7 @@ class _SimilarListingCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(currentUserProvider).valueOrNull;
+    final user = ref.watch(currentUserProvider).asData?.value;
     final isOwnListing = user != null && property.ownerId == user.id;
     final favorites = ref.watch(favoritesProvider);
     final isFavorite = favorites.contains(property.id);

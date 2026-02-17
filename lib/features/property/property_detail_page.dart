@@ -34,14 +34,14 @@ class PropertyDetailPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(currentUserProvider).valueOrNull;
+    final user = ref.watch(currentUserProvider).asData?.value;
     final propertyAsync = ref.watch(propertyDetailProvider(propertyId));
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < AppSpacing.mobileBreakpoint;
     final isTablet = screenWidth >= AppSpacing.mobileBreakpoint &&
         screenWidth < AppSpacing.tabletBreakpoint;
     final isDesktop = !isMobile && !isTablet;
-    final property = propertyAsync.valueOrNull;
+    final property = propertyAsync.asData?.value;
     final canEdit = property != null &&
         user != null &&
         RolePermissions.canEditListing(
@@ -902,7 +902,7 @@ class _PropertyTeaserView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(currentUserProvider).valueOrNull;
+    final user = ref.watch(currentUserProvider).asData?.value;
     final isMobile = MediaQuery.of(context).size.width < AppSpacing.mobileBreakpoint;
     final path = '/property/$propertyId';
 

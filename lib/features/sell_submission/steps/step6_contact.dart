@@ -75,7 +75,7 @@ class _Step6ContactState extends ConsumerState<Step6Contact> {
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(currentUserProvider).valueOrNull;
+    final user = ref.watch(currentUserProvider).asData?.value;
     final canFillFromAccount = !widget.readOnly &&
         user != null &&
         (user.displayName?.trim().isNotEmpty == true ||

@@ -76,7 +76,7 @@ class _RoiQuickSectionState extends ConsumerState<RoiQuickSection> {
   }
 
   void _handleShowOffers() {
-    final user = ref.read(currentUserProvider).valueOrNull;
+    final user = ref.read(currentUserProvider).asData?.value;
     if (user != null && user.hasIdentityVerifiedAccess) {
       context.go(_buildOffersPath());
       widget.onShowOffers?.call();

@@ -843,7 +843,7 @@ class _SidebarXShellState extends ConsumerState<SidebarXShell> {
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(currentUserProvider).valueOrNull;
+    final user = ref.watch(currentUserProvider).asData?.value;
     final roleLevel = user?.effectiveRoleLevel ?? UserRoleLevel.guest;
     final items = _menuItemsForRole(roleLevel, user);
 
@@ -988,7 +988,7 @@ class _SidebarXShellState extends ConsumerState<SidebarXShell> {
 
   Widget _buildFooter(BuildContext context) {
     final auth = ref.read(authServiceProvider);
-    final user = ref.watch(currentUserProvider).valueOrNull;
+    final user = ref.watch(currentUserProvider).asData?.value;
     final roleLevel = user?.effectiveRoleLevel ?? UserRoleLevel.guest;
     final showVdrCta = user != null &&
         (roleLevel == UserRoleLevel.investorBasic || roleLevel == UserRoleLevel.investorVerified) &&

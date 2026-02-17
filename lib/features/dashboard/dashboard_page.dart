@@ -116,7 +116,7 @@ class DashboardPage extends ConsumerWidget {
     final padding = media.padding;
     final isTablet = screenWidth >= AppSpacing.mobileBreakpoint && screenWidth < AppSpacing.tabletBreakpoint;
     final isMobile = screenWidth < AppSpacing.mobileBreakpoint;
-    final user = ref.watch(currentUserProvider).valueOrNull;
+    final user = ref.watch(currentUserProvider).asData?.value;
     final favoritesCount = ref.watch(favoritesProvider).length;
     final showVerifyCta = user != null && !user.hasIdentityVerifiedAccess;
     final showVdrCta = user != null &&
@@ -126,7 +126,7 @@ class DashboardPage extends ConsumerWidget {
     final hasPartner = RolePermissions.hasPartnerDashboard(roleLevel);
     final isInvestor = RolePermissions.hasInvestorDashboard(roleLevel);
     final listingsCount = ref.watch(partnerListingsCountProvider);
-    final mySubmissionsCount = ref.watch(mySubmissionsCountProvider).valueOrNull ?? 0;
+    final mySubmissionsCount = ref.watch(mySubmissionsCountProvider).asData?.value ?? 0;
     final alertsCount = ref.watch(dashboardAlertsCountProvider);
     final messagesCount = ref.watch(dashboardMessagesCountProvider);
     final sections = _sectionsForRole(
@@ -140,7 +140,7 @@ class DashboardPage extends ConsumerWidget {
     final newListingsItems = ref.watch(newListingsPreviewProvider);
     final messagesItems = ref.watch(messagesPreviewProvider);
     final recentlyViewedItems =
-        ref.watch(recentlyViewedPreviewProvider).valueOrNull ?? [];
+        ref.watch(recentlyViewedPreviewProvider).asData?.value ?? [];
     final userCriteriaItems = ref.watch(userCriteriaPreviewProvider);
 
     final contentPadding = isMobile

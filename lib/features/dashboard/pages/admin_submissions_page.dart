@@ -33,7 +33,7 @@ class _AdminSubmissionsPageState extends ConsumerState<AdminSubmissionsPage> {
   String? _statusFilter;
 
   Map<String, String> _agentsNameMap() {
-    final agents = ref.watch(_agentsProvider).valueOrNull ?? [];
+    final agents = ref.watch(_agentsProvider).asData?.value ?? [];
     final map = <String, String>{};
     for (final a in agents) {
       map[a.id] = a.displayName?.trim().isNotEmpty == true ? a.displayName! : (a.email ?? a.id);

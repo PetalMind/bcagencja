@@ -42,7 +42,7 @@ class AppBarCustom extends ConsumerWidget implements PreferredSizeWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isMobile = MediaQuery.of(context).size.width < AppSpacing.mobileBreakpoint;
     final asyncUser = ref.watch(currentUserProvider);
-    final user = asyncUser.valueOrNull;
+    final user = asyncUser.asData?.value;
     final isLoggedIn = user != null;
     final authLoading = asyncUser.isLoading;
     final showAddListing = isLoggedIn && user.hasPartnerDashboard;

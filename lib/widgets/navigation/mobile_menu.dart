@@ -19,7 +19,7 @@ class MobileMenu extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(currentUserProvider).valueOrNull;
+    final user = ref.watch(currentUserProvider).asData?.value;
     final isLoggedIn = user != null;
     final showAddListing = isLoggedIn && (user?.hasPartnerDashboard ?? false);
     final showVerifyAccount = isLoggedIn && (user?.hasIdentityVerifiedAccess != true);

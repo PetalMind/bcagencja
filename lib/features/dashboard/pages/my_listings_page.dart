@@ -18,7 +18,7 @@ final _listingsServiceProvider = Provider<ListingsService>((ref) => ListingsServ
 
 /// Stream ofert bieżącego użytkownika (agent) – kolekcja listings, ownerId == uid.
 final _myListingsProvider = StreamProvider.autoDispose<List<Property>>((ref) {
-  final user = ref.watch(currentUserProvider).valueOrNull;
+  final user = ref.watch(currentUserProvider).asData?.value;
   if (user == null) return Stream.value([]);
   return ref.read(_listingsServiceProvider).streamMyListings(ownerId: user.id);
 });

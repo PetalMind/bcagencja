@@ -76,7 +76,7 @@ class _ListingGridTileState extends ConsumerState<ListingGridTile> {
   @override
   Widget build(BuildContext context) {
     final property = widget.property;
-    final user = ref.watch(currentUserProvider).valueOrNull;
+    final user = ref.watch(currentUserProvider).asData?.value;
     final isOwnListing = user != null && property.ownerId == user.id;
     final favorites = ref.watch(favoritesProvider);
     final isFavorite = favorites.contains(property.id);

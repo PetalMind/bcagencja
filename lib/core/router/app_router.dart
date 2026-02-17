@@ -97,7 +97,7 @@ class AppRouter {
     redirect: (context, state) {
       try {
         final container = ProviderScope.containerOf(context);
-        final user = container.read(currentUserProvider).valueOrNull;
+        final user = container.read(currentUserProvider).asData?.value;
         final loc = state.matchedLocation;
         final roleLevel = user?.effectiveRoleLevel ?? UserRoleLevel.guest;
 

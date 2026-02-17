@@ -42,7 +42,7 @@ class SmartFavoritesNotifier extends Notifier<SmartFavoritesState> {
   }
 
   SharedPreferences? get _prefs => ref.read(sharedPreferencesProvider);
-  String? get _currentUserId => ref.read(currentUserProvider).valueOrNull?.id;
+  String? get _currentUserId => ref.read(currentUserProvider).asData?.value?.id;
 
   Future<void> _loadCollections(String? userId) async {
     final prefs = _prefs;
