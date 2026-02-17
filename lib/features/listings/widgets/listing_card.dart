@@ -6,6 +6,7 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/state/models/property_model.dart';
+import '../../../widgets/common/watermarked_image.dart';
 import '../../property/widgets/property_gallery.dart';
 
 class ListingCard extends StatefulWidget {
@@ -289,22 +290,24 @@ class _ListingCardState extends State<ListingCard> {
     }
     final index = _cardImageIndex.clamp(0, images.length - 1);
     final url = images.length > 1 ? images[index] : (widget.property.mainImage ?? images[0]);
-    return CachedNetworkImage(
-      imageUrl: url,
-      fit: BoxFit.cover,
-      placeholder: (_, _) => Container(
-        color: AppColors.grey200,
-        child: const Center(
-          child: CircularProgressIndicator(
-            color: AppColors.accent,
-            strokeWidth: 2,
+    return WatermarkedImage(
+      child: CachedNetworkImage(
+        imageUrl: url,
+        fit: BoxFit.cover,
+        placeholder: (_, _) => Container(
+          color: AppColors.grey200,
+          child: const Center(
+            child: CircularProgressIndicator(
+              color: AppColors.accent,
+              strokeWidth: 2,
+            ),
           ),
         ),
-      ),
-      errorWidget: (_, _, _) => const Icon(
-        AppIcons.image,
-        size: 48,
-        color: AppColors.grey400,
+        errorWidget: (_, _, _) => const Icon(
+          AppIcons.image,
+          size: 48,
+          color: AppColors.grey400,
+        ),
       ),
     );
   }

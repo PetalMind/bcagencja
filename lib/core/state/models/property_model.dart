@@ -1,3 +1,10 @@
+/// Odniesienie do dokumentu VDR (ścieżka w Storage + nazwa do wyświetlenia).
+class VdrDocumentRef {
+  const VdrDocumentRef({required this.name, required this.storagePath});
+  final String name;
+  final String storagePath;
+}
+
 class Property {
   final String id;
   final String title;
@@ -43,7 +50,9 @@ class Property {
   final DateTime updatedAt;
   final int views;
   final int favorites;
-  
+  /// Dokumenty VDR (operaty, umowy) – pobierane z watermarkiem przez Cloud Function.
+  final List<VdrDocumentRef> vdrDocuments;
+
   Property({
     required this.id,
     required this.title,
@@ -89,6 +98,7 @@ class Property {
     required this.updatedAt,
     this.views = 0,
     this.favorites = 0,
+    this.vdrDocuments = const [],
   });
   
   String get formattedPrice {
@@ -146,7 +156,15 @@ class Property {
   // Compatibility properties for widgets that still use old names
   int get rooms => floors; // For backward compatibility
   List<String> get amenities => features; // For backward compatibility
-  
+
+  /// Dla zapisanych ofert: zwraca Property z mocków gdy id ma postać "property_N".
+  /// Gdy będzie backend (Firestore), można podmienić na pobieranie po id.
+  static Property? fromMockId(String id) {
+    final index = int.tryParse(id.replaceAll('property_', '').trim());
+    if (index == null || index < 0) return null;
+    return Property.mock(index);
+  }
+
   // Factory constructor for creating mock data
   factory Property.mock(int index) {
     final descriptions = [

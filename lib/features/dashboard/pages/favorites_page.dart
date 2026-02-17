@@ -1,31 +1,40 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/state/models/property_model.dart';
+import '../../../core/state/providers/favorites_provider.dart';
 import '../../../core/router/app_router.dart';
 import '../widgets/dashboard_scaffold.dart';
 import '../widgets/empty_state.dart';
 import '../../listings/widgets/listing_card.dart';
 
-class FavoritesPage extends StatelessWidget {
+/// Strona „Zapisane oferty” – lista ofert dodanych do ulubionych (zapisanych).
+class FavoritesPage extends ConsumerWidget {
   const FavoritesPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isMobile = MediaQuery.sizeOf(context).width < AppSpacing.mobileBreakpoint;
-    final favorites = List.generate(4, (i) => Property.mock(i + 2));
+    final favoriteIds = ref.watch(favoritesProvider);
+    final favorites = favoriteIds
+        .map((id) => Property.fromMockId(id))
+        .whereType<Property>()
+        .toList();
 
     return DashboardScaffold(
-      title: 'Ulubione',
+      title: 'Zapisane oferty',
       currentRoute: AppRouter.dashboardFavorites,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '${favorites.length} zapisanych ofert',
+            favoriteIds.isEmpty
+                ? 'Brak zapisanych ofert'
+                : '${favorites.length} zapisanych ofert',
             style: AppTextStyles.bodyMedium.copyWith(
               color: AppColors.textSecondary,
             ),
@@ -33,12 +42,12 @@ class FavoritesPage extends StatelessWidget {
           const SizedBox(height: AppSpacing.lg),
           if (favorites.isEmpty)
             DashboardEmptyState(
-              title: 'Brak ulubionych',
-              subtitle: 'Zapisuj oferty, klikając ikonę serca przy ogłoszeniu.',
-              actionLabel: 'Przejdź do wyszukiwania',
+              title: 'Brak zapisanych ofert',
+              subtitle: 'Zapisuj oferty, klikając ikonę serca przy ogłoszeniu lub przycisk „Zapisz ofertę” na stronie szczegółów.',
+              actionLabel: 'Przejdź do bazy ofert',
               icon: AppIcons.favorites,
               actionIcon: AppIcons.search,
-              onAction: () => context.push(AppRouter.search),
+              onAction: () => context.push(AppRouter.oferty),
             )
           else
             LayoutBuilder(

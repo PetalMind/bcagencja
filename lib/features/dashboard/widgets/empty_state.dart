@@ -9,17 +9,17 @@ class DashboardEmptyState extends StatelessWidget {
     super.key,
     required this.title,
     required this.subtitle,
-    required this.actionLabel,
     required this.icon,
-    required this.onAction,
+    this.actionLabel,
+    this.onAction,
     this.actionIcon,
   });
 
   final String title;
   final String subtitle;
-  final String actionLabel;
   final IconData icon;
-  final VoidCallback onAction;
+  final String? actionLabel;
+  final VoidCallback? onAction;
   final IconData? actionIcon;
 
   @override
@@ -48,16 +48,18 @@ class DashboardEmptyState extends StatelessWidget {
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: AppSpacing.lg),
-            FilledButton.icon(
-              onPressed: onAction,
-              icon: Icon(actionIcon ?? AppIcons.add, size: 20),
-              label: Text(actionLabel),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.accent,
-                foregroundColor: AppColors.white,
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(height: AppSpacing.lg),
+              FilledButton.icon(
+                onPressed: onAction,
+                icon: Icon(actionIcon ?? AppIcons.add, size: 20),
+                label: Text(actionLabel!),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.accent,
+                  foregroundColor: AppColors.white,
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ),

@@ -4,7 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 const String _favoritesKey = 'favorite_property_ids';
 
 /// Provider for SharedPreferences (used by favorites persistence).
-final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
+/// Może być null na Safari Web (tryb prywatny / blokada storage) – wtedy ulubione nie są zapisywane.
+final sharedPreferencesProvider = Provider<SharedPreferences?>((ref) {
   throw UnimplementedError(
     'SharedPreferences must be overridden in main.dart with runWithPreferences',
   );
@@ -19,12 +20,14 @@ class FavoritesNotifier extends Notifier<Set<String>> {
 
   Future<Set<String>> _loadFromDisk() async {
     final prefs = ref.read(sharedPreferencesProvider);
+    if (prefs == null) return {};
     final list = prefs.getStringList(_favoritesKey);
     return list != null ? Set<String>.from(list) : {};
   }
 
   Future<void> _save() async {
     final prefs = ref.read(sharedPreferencesProvider);
+    if (prefs == null) return;
     await prefs.setStringList(_favoritesKey, state.toList());
   }
 

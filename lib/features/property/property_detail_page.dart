@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/state/providers/auth_provider.dart';
+import '../../core/services/vdr_document_service.dart';
 import '../../widgets/navigation/app_bar_custom.dart';
 import '../../widgets/property/mobile_contact_bar.dart';
 import '../../core/theme/app_colors.dart';
@@ -16,7 +19,8 @@ import 'widgets/property_parameters.dart';
 import 'widgets/property_amenities.dart';
 import 'widgets/similar_listings.dart';
 
-class PropertyDetailPage extends StatelessWidget {
+/// Szczegóły oferty z 3-stopniowym modelem dostępu: teaser → Level 2 (pełna oferta) → VDR.
+class PropertyDetailPage extends ConsumerWidget {
   final String propertyId;
   
   const PropertyDetailPage({
@@ -25,29 +29,44 @@ class PropertyDetailPage extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider).valueOrNull;
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < AppSpacing.mobileBreakpoint;
     final isTablet = screenWidth >= AppSpacing.mobileBreakpoint &&
         screenWidth < AppSpacing.tabletBreakpoint;
     
-    // Get property data - in real app this would come from API/state management
     final property = _getPropertyById(propertyId);
-    
     final isDesktop = !isMobile && !isTablet;
+
+    final showTeaserOnly = user == null || !user.hasIdentityVerifiedAccess;
+    final hasVdrAccess = user != null && user.hasVdrAccess(propertyId);
+
+    if (showTeaserOnly) {
+      return Scaffold(
+        appBar: const AppBarCustom(showBackButton: true),
+        body: _PropertyTeaserView(
+          property: property,
+          propertyId: propertyId,
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: const AppBarCustom(showBackButton: true),
       body: isDesktop
-          ? _buildDesktopBody(context, property)
+          ? _buildDesktopBody(context, ref, property, hasVdrAccess)
           : SingleChildScrollView(
               child: Column(
                 children: [
                   _buildContentContainer(
                     context,
+                    ref: ref,
                     property: property,
+                    propertyId: propertyId,
                     isMobile: isMobile,
                     includePanelInFlow: true,
+                    hasVdrAccess: hasVdrAccess,
                   ),
                 ],
               ),
@@ -62,7 +81,7 @@ class PropertyDetailPage extends StatelessWidget {
     );
   }
 
-  Widget _buildDesktopBody(BuildContext context, Property property) {
+  Widget _buildDesktopBody(BuildContext context, WidgetRef ref, Property property, bool hasVdrAccess) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -71,9 +90,12 @@ class PropertyDetailPage extends StatelessWidget {
           child: SingleChildScrollView(
             child: _buildContentContainer(
               context,
+              ref: ref,
               property: property,
+              propertyId: propertyId,
               isMobile: false,
               includePanelInFlow: false,
+              hasVdrAccess: hasVdrAccess,
             ),
           ),
         ),
@@ -96,10 +118,14 @@ class PropertyDetailPage extends StatelessWidget {
   }
 
   Widget _buildContentContainer(
-    BuildContext context,
-    {required Property property,
+    BuildContext context, {
+    required WidgetRef ref,
+    required Property property,
+    required String propertyId,
     required bool isMobile,
-    required bool includePanelInFlow}) {
+    required bool includePanelInFlow,
+    required bool hasVdrAccess,
+  }) {
     return Container(
       constraints: const BoxConstraints(
         maxWidth: AppSpacing.containerMaxWidth,
@@ -138,7 +164,7 @@ class PropertyDetailPage extends StatelessWidget {
                                   vertical: AppSpacing.xs,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: AppColors.success.withOpacity(0.1),
+                                  color: AppColors.success.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(
                                     AppSpacing.radiusSm,
                                   ),
@@ -278,12 +304,212 @@ class PropertyDetailPage extends StatelessWidget {
                   
                   const SizedBox(height: AppSpacing.xxl),
                   
+                  // VDR: CTA lub sekcja dokumentów
+                  if (hasVdrAccess)
+                    _buildVdrSection(context, ref, propertyId, property, isMobile)
+                  else
+                    _buildVdrCta(context, propertyId, isMobile),
+                  const SizedBox(height: AppSpacing.xxl),
+                  
                   // Similar listings
                   SimilarListings(propertyId: property.id),
                   const SizedBox(height: AppSpacing.xxl),
                 ],
               ),
             );
+  }
+
+  Widget _buildVdrCta(BuildContext context, String listingId, bool isMobile) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? AppSpacing.md : 0),
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        decoration: BoxDecoration(
+          color: AppColors.primaryDark.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          border: Border.all(color: AppColors.primaryDark.withValues(alpha: 0.2)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.folder_special_outlined, color: AppColors.primaryDark, size: 28),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  'Dostęp do dokumentów (VDR)',
+                  style: AppTextStyles.titleMedium.copyWith(color: AppColors.primaryDark),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Aby przeglądać operaty, umowy najmu i audyty, złóż wniosek o weryfikację kapitału (Proof of Funds). '
+              'Dyrektor obszaru zweryfikuje dokumenty i przyzna dostęp do Virtual Data Room.',
+              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            FilledButton.icon(
+              onPressed: () => _openVdrRequestSheet(context, listingId),
+              icon: const Icon(Icons.upload_file, size: 20),
+              label: const Text('Złóż wniosek o dostęp VDR'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primaryDark,
+                foregroundColor: AppColors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openVdrRequestSheet(BuildContext context, String listingId) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.5,
+        minChildSize: 0.3,
+        maxChildSize: 0.9,
+        builder: (_, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusLg)),
+          ),
+          child: ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            children: [
+              Text(
+                'Wniosek o dostęp do VDR',
+                style: AppTextStyles.titleLarge.copyWith(color: AppColors.primaryDark),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'Funkcja uploadu Proof of Funds (promesa / wyciąg) i weryfikacja przez Dyrektora będzie dostępna w kolejnej iteracji.',
+                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              OutlinedButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Zamknij'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVdrSection(
+    BuildContext context,
+    WidgetRef ref,
+    String listingId,
+    Property property,
+    bool isMobile,
+  ) {
+    final service = ref.read(vdrDocumentServiceProvider);
+    final docs = property.vdrDocuments;
+
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? AppSpacing.md : 0),
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        decoration: BoxDecoration(
+          color: AppColors.success.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.folder_special, color: AppColors.success, size: 28),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  'Virtual Data Room',
+                  style: AppTextStyles.titleMedium.copyWith(color: AppColors.success),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              docs.isEmpty
+                  ? 'Masz dostęp do dokumentów tej oferty. Lista dokumentów pojawi się po dodaniu ich do oferty w panelu agenta. Każde pobranie jest oznaczane Twoim imieniem, datą i adresem IP (znak wodny).'
+                  : 'Pobierz dokumenty z dynamicznym znakiem wodnym (Twoje dane, data, IP – do śledzenia ewentualnych wycieków).',
+              style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+            ),
+            if (docs.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.md),
+              ...docs.map((doc) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                  child: Row(
+                    children: [
+                      Icon(Icons.picture_as_pdf_outlined, color: AppColors.primaryDark, size: 20),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          doc.name,
+                          style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      FilledButton.icon(
+                        onPressed: () => _downloadVdrDocument(
+                          context,
+                          service,
+                          listingId: listingId,
+                          documentPath: doc.storagePath,
+                          filename: doc.name.endsWith('.pdf') ? doc.name : '${doc.name}.pdf',
+                        ),
+                        icon: const Icon(Icons.download, size: 18),
+                        label: const Text('Pobierz PDF'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.primaryDark,
+                          foregroundColor: AppColors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _downloadVdrDocument(
+    BuildContext context,
+    VdrDocumentService service, {
+    required String listingId,
+    required String documentPath,
+    required String filename,
+  }) async {
+    if (!context.mounted) return;
+    final result = await service.downloadWithWatermark(
+      listingId: listingId,
+      documentPath: documentPath,
+      filename: filename,
+    );
+    if (!context.mounted) return;
+    final snackBar = switch (result) {
+      VdrDownloadSuccess() => SnackBar(
+          content: Text('Pobrano: $filename (z Twoim znakiem wodnym)'),
+          backgroundColor: AppColors.success,
+        ),
+      VdrDownloadFailure(:final message) => SnackBar(
+          content: Text(message),
+          backgroundColor: AppColors.error,
+        ),
+    };
+    ScaffoldMessenger.of(context).showSnackBar(snackBar);
   }
 
   Widget _buildBreadcrumbs(BuildContext context, Property property) {
@@ -543,5 +769,136 @@ class PropertyDetailPage extends StatelessWidget {
     // Extract number from id (e.g., "property_2" -> 2)
     final index = int.tryParse(id.replaceAll('property_', '')) ?? 0;
     return Property.mock(index);
+  }
+}
+
+/// Widok teasera oferty: 1 zdjęcie, typ, powierzchnia, cena, region (bez adresu), krótki opis. CTA → logowanie/NDA.
+class _PropertyTeaserView extends ConsumerWidget {
+  const _PropertyTeaserView({required this.property, required this.propertyId});
+
+  final Property property;
+  final String propertyId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider).valueOrNull;
+    final isMobile = MediaQuery.of(context).size.width < AppSpacing.mobileBreakpoint;
+    final path = '/property/$propertyId';
+
+    return SingleChildScrollView(
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: AppSpacing.containerMaxWidth),
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: isMobile ? AppSpacing.md : AppSpacing.xl,
+              vertical: AppSpacing.xl,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  property.propertyTypeLabel,
+                  style: AppTextStyles.overline.copyWith(color: AppColors.accent),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  property.title,
+                  style: (isMobile ? AppTextStyles.headlineSmall : AppTextStyles.headlineLarge)
+                      .copyWith(color: AppColors.primaryDark),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Row(
+                  children: [
+                    Icon(AppIcons.location, size: 18, color: AppColors.textSecondary),
+                    const SizedBox(width: AppSpacing.xs),
+                    Text(
+                      property.city,
+                      style: AppTextStyles.bodyLarge.copyWith(color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                PropertyGallery(
+                  images: property.images.isEmpty
+                      ? []
+                      : property.images.sublist(0, 1),
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                Row(
+                  children: [
+                    Icon(AppIcons.area, size: 20, color: AppColors.textSecondary),
+                    const SizedBox(width: AppSpacing.sm),
+                    Text(
+                      '${property.area.toStringAsFixed(0)} m²',
+                      style: AppTextStyles.bodyLarge.copyWith(color: AppColors.textSecondary),
+                    ),
+                    const SizedBox(width: AppSpacing.lg),
+                    Text(
+                      property.formattedPrice,
+                      style: AppTextStyles.titleLarge.copyWith(
+                        color: AppColors.primaryDark,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                PropertyDescription(
+                  title: 'Opis',
+                  description: property.description.length > 280
+                      ? '${property.description.substring(0, 280)}...'
+                      : property.description,
+                ),
+                const SizedBox(height: AppSpacing.xxl),
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryDark.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                    border: Border.all(color: AppColors.primaryDark.withValues(alpha: 0.2)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Pełna oferta i dokumenty',
+                        style: AppTextStyles.titleMedium.copyWith(color: AppColors.primaryDark),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        'Aby zobaczyć dokładną lokalizację, pełną galerię i dane kontaktowe, zaloguj się i zaakceptuj regulamin oraz NDA (weryfikacja LinkedIn lub NIP). '
+                        'Dostęp do dokumentów (VDR) wymaga dodatkowej weryfikacji kapitału.',
+                        style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      FilledButton.icon(
+                        onPressed: () {
+                          if (user == null) {
+                            context.go('${AppRouter.logowanie}?returnTo=${Uri.encodeComponent(path)}');
+                          } else {
+                            context.go('${AppRouter.weryfikacja}?returnTo=${Uri.encodeComponent(path)}');
+                          }
+                        },
+                        icon: const Icon(Icons.verified_user_outlined, size: 20),
+                        label: Text(
+                          user == null
+                              ? 'Zaloguj się i zaakceptuj NDA'
+                              : 'Dokończ weryfikację (NDA)',
+                        ),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.primaryDark,
+                          foregroundColor: AppColors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

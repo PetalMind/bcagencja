@@ -5,6 +5,7 @@ import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/state/models/property_model.dart';
+import '../../../widgets/common/watermarked_image.dart';
 
 class SimilarListings extends StatelessWidget {
   final String propertyId;
@@ -81,13 +82,15 @@ class SimilarListings extends StatelessWidget {
                     height: 180,
                     width: double.infinity,
                     color: AppColors.grey200,
-                    child: Image.network(
-                      property.mainImage ?? property.images.first,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => const Icon(
-                        AppIcons.image,
-                        size: 48,
-                        color: AppColors.grey400,
+                    child: WatermarkedImage(
+                      child: Image.network(
+                        property.mainImage ?? property.images.first,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => const Icon(
+                          AppIcons.image,
+                          size: 48,
+                          color: AppColors.grey400,
+                        ),
                       ),
                     ),
                   ),

@@ -1,24 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/router/app_router.dart';
+import '../../core/state/providers/auth_provider.dart';
 import '../../widgets/common/custom_button.dart';
 
-class MobileMenu extends StatelessWidget {
+/// Menu mobilne dynamiczne względem stanu auth i roli (WDROZENIE_FUNKCJONALNOSCI 4.1):
+/// - Anonim: Zaloguj, bez "Dodaj ogłoszenie", bez Panelu/Ulubione.
+/// - Zalogowany (lead): Panel, Ulubione, Wyloguj, bez "Dodaj ogłoszenie".
+/// - Zalogowany (agent/dyrektor/admin): Panel, Ulubione, "Dodaj ogłoszenie", Wyloguj.
+class MobileMenu extends ConsumerWidget {
   const MobileMenu({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider).valueOrNull;
+    final isLoggedIn = user != null;
+    final showAddListing = isLoggedIn && (user?.hasPartnerDashboard ?? false);
+    final showVerifyAccount = isLoggedIn && (user?.hasIdentityVerifiedAccess != true);
+    final auth = ref.read(authServiceProvider);
+
     return Drawer(
       backgroundColor: AppColors.white,
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Header
             Container(
               padding: const EdgeInsets.all(AppSpacing.lg),
               color: AppColors.primaryDark,
@@ -38,8 +49,6 @@ class MobileMenu extends StatelessWidget {
                 ],
               ),
             ),
-            
-            // Menu items
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
@@ -67,47 +76,83 @@ class MobileMenu extends StatelessWidget {
                     icon: AppIcons.office,
                     title: 'Oferty komercyjne',
                     onTap: () {
-                      context.go(AppRouter.searchResults);
+                      context.go(AppRouter.oferty);
                       Navigator.of(context).pop();
                     },
                   ),
-                  const Divider(),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.md,
-                      vertical: AppSpacing.sm,
+                  if (showVerifyAccount)
+                    _buildMenuItem(
+                      context,
+                      icon: Icons.verified_user_outlined,
+                      title: 'Zweryfikuj konto',
+                      onTap: () {
+                        context.go(AppRouter.weryfikacja);
+                        Navigator.of(context).pop();
+                      },
+                      highlighted: true,
                     ),
-                    child: CustomButton(
-                      label: 'Dodaj ogłoszenie',
-                      icon: AppIcons.add,
-                      variant: ButtonVariant.gradient,
-                      size: ButtonSize.medium,
-                      fullWidth: true,
-                      onPressed: () {
-                        context.go(AppRouter.addListing);
+                  if (isLoggedIn)
+                    _buildMenuItem(
+                      context,
+                      icon: AppIcons.login,
+                      title: 'Wyloguj',
+                      onTap: () async {
+                        Navigator.of(context).pop();
+                        await auth.signOut();
+                        if (context.mounted) context.go(AppRouter.home);
+                      },
+                    )
+                  else
+                    _buildMenuItem(
+                      context,
+                      icon: AppIcons.login,
+                      title: 'Zaloguj',
+                      onTap: () {
+                        context.go(AppRouter.logowanie);
                         Navigator.of(context).pop();
                       },
                     ),
-                  ),
-                  const Divider(),
-                  _buildMenuItem(
-                    context,
-                    icon: AppIcons.profile,
-                    title: 'Panel użytkownika',
-                    onTap: () {
-                      context.go(AppRouter.dashboard);
-                      Navigator.of(context).pop();
-                    },
-                  ),
-                  _buildMenuItem(
-                    context,
-                    icon: AppIcons.favorites,
-                    title: 'Ulubione',
-                    onTap: () {
-                      context.go(AppRouter.dashboardFavorites);
-                      Navigator.of(context).pop();
-                    },
-                  ),
+                  if (showAddListing) ...[
+                    const Divider(),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                        vertical: AppSpacing.sm,
+                      ),
+                      child: CustomButton(
+                        label: 'Dodaj ogłoszenie',
+                        icon: AppIcons.add,
+                        variant: ButtonVariant.gradient,
+                        size: ButtonSize.medium,
+                        fullWidth: true,
+                        onPressed: () {
+                          context.go(AppRouter.addListing);
+                          Navigator.of(context).pop();
+                        },
+                      ),
+                    ),
+                  ],
+                  if (isLoggedIn) ...[
+                    const Divider(),
+                    _buildMenuItem(
+                      context,
+                      icon: AppIcons.profile,
+                      title: 'Panel użytkownika',
+                      onTap: () {
+                        context.go(AppRouter.dashboard);
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                    _buildMenuItem(
+                      context,
+                      icon: AppIcons.favorites,
+                      title: 'Ulubione',
+                      onTap: () {
+                        context.go(AppRouter.dashboardFavorites);
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                  ],
                   const Divider(),
                   _buildMenuItem(
                     context,

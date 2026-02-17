@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_icons.dart';
+import '../../widgets/common/watermarked_image.dart';
 
 class ImageOptimizer {
-  /// Load optimized image with caching and placeholders
+  /// Load optimized image with caching, placeholders and watermark „bcagencja.eu”.
   static Widget optimizedImage({
     required String imageUrl,
     double? width,
@@ -13,35 +14,37 @@ class ImageOptimizer {
     Widget? placeholder,
     Widget? errorWidget,
   }) {
-    return CachedNetworkImage(
-      imageUrl: imageUrl,
-      width: width,
-      height: height,
-      fit: fit,
-      placeholder: (context, url) =>
-          placeholder ??
-          Container(
-            color: AppColors.grey200,
-            child: const Center(
-              child: CircularProgressIndicator(),
-            ),
-          ),
-      errorWidget: (context, url, error) =>
-          errorWidget ??
-          Container(
-            color: AppColors.grey200,
-            child: const Center(
-              child: Icon(
-                AppIcons.image,
-                size: 48,
-                color: AppColors.grey400,
+    return WatermarkedImage(
+      child: CachedNetworkImage(
+        imageUrl: imageUrl,
+        width: width,
+        height: height,
+        fit: fit,
+        placeholder: (context, url) =>
+            placeholder ??
+            Container(
+              color: AppColors.grey200,
+              child: const Center(
+                child: CircularProgressIndicator(),
               ),
             ),
-          ),
-      memCacheWidth: width?.toInt(),
-      memCacheHeight: height?.toInt(),
-      maxWidthDiskCache: 1200,
-      maxHeightDiskCache: 1200,
+        errorWidget: (context, url, error) =>
+            errorWidget ??
+            Container(
+              color: AppColors.grey200,
+              child: const Center(
+                child: Icon(
+                  AppIcons.image,
+                  size: 48,
+                  color: AppColors.grey400,
+                ),
+              ),
+            ),
+        memCacheWidth: width?.toInt(),
+        memCacheHeight: height?.toInt(),
+        maxWidthDiskCache: 1200,
+        maxHeightDiskCache: 1200,
+      ),
     );
   }
   

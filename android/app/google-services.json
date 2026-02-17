@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "1091574464476",
+    "project_id": "bc-agencja",
+    "storage_bucket": "bc-agencja.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1091574464476:android:db8d6fab682f4303215919",
+        "android_client_info": {
+          "package_name": "com.example.bcagencja"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1091574464476-8bci1r6ih083j7bbsardo4ulg7637uvc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDKYOMUne5TmP60Y6Lb0CW2K46iBqNQRvQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1091574464476-8bci1r6ih083j7bbsardo4ulg7637uvc.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_icons.dart';
+import '../../../widgets/common/watermarked_image.dart';
 
 /// Pokazuje lightbox galerii. Używane na stronie szczegółów i z kart listingu.
 void showGalleryLightbox(
@@ -212,24 +213,26 @@ class _PropertyGalleryState extends State<PropertyGallery> {
     required BoxFit fit,
     bool showLoading = false,
   }) {
-    return CachedNetworkImage(
-      imageUrl: url,
-      fit: fit,
-      placeholder: showLoading
-          ? (_, _) => Container(
-                color: AppColors.grey200,
-                child: const Center(
-                  child: CircularProgressIndicator(
-                    color: AppColors.accent,
-                    strokeWidth: 2,
+    return WatermarkedImage(
+      child: CachedNetworkImage(
+        imageUrl: url,
+        fit: fit,
+        placeholder: showLoading
+            ? (_, _) => Container(
+                  color: AppColors.grey200,
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.accent,
+                      strokeWidth: 2,
+                    ),
                   ),
-                ),
-              )
-          : null,
-      errorWidget: (_, _, _) => Icon(
-        AppIcons.image,
-        size: 48,
-        color: AppColors.grey400,
+                )
+            : null,
+        errorWidget: (_, _, _) => Icon(
+          AppIcons.image,
+          size: 48,
+          color: AppColors.grey400,
+        ),
       ),
     );
   }
@@ -313,13 +316,15 @@ class _GalleryLightboxDialogState extends State<GalleryLightboxDialog> {
                     setState(() => _currentIndex = index.clamp(0, widget.images.length - 1)),
                 itemBuilder: (context, index) {
                   return InteractiveViewer(
-                    child: CachedNetworkImage(
-                      imageUrl: widget.images[index],
-                      fit: BoxFit.contain,
-                      placeholder: (_, _) => const Center(
-                        child: CircularProgressIndicator(color: AppColors.white),
-                      ),
-                      errorWidget: (_, _, _) => Column(
+                    child: WatermarkedImage(
+                      fontSize: 14,
+                      child: CachedNetworkImage(
+                        imageUrl: widget.images[index],
+                        fit: BoxFit.contain,
+                        placeholder: (_, _) => const Center(
+                          child: CircularProgressIndicator(color: AppColors.white),
+                        ),
+                        errorWidget: (_, _, _) => Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const Icon(
@@ -336,6 +341,7 @@ class _GalleryLightboxDialogState extends State<GalleryLightboxDialog> {
                           ),
                         ],
                       ),
+                    ),
                     ),
                   );
                 },

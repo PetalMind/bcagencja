@@ -1,18 +1,62 @@
-rules_version='2'
+rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      // This rule allows anyone with your database reference to view, edit,
-      // and delete all data in your database. It is useful for getting
-      // started, but it is configured to expire after 30 days because it
-      // leaves your app open to attackers. At that time, all client
-      // requests to your database will be denied.
-      //
-      // Make sure to write security rules for your app before that time, or
-      // else all client requests to your database will be denied until you
-      // update your rules.
-      allow read, write: if request.time < timestamp.date(2026, 2, 28);
+
+    // --- Pomocnicze funkcje ---
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+    function isAdmin() {
+      return isAuthenticated()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // --- users: profil użytkownika ---
+    // Odczyt: własny dokument lub admin. Zapis własnego: tylko swój uid. Aktualizacja: własny lub admin.
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // --- ndaAcceptanceLogs: logi akceptacji NDA ---
+    // Tylko zalogowany użytkownik może dodać wpis (add). Odczyt tylko admin (opcjonalnie).
+    match /ndaAcceptanceLogs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+
+    // --- inviteTokens: tokeny zaproszeń (link do rejestracji Agent/Dyrektor) ---
+    // Odczyt bez auth, żeby strona rejestracji z linku mogła pobrać dane po tokenie (doc id = token).
+    // Update: zalogowany użytkownik może oznaczyć token jako użyty po rejestracji.
+    match /inviteTokens/{tokenId} {
+      allow read: if true;
+      allow create: if isAdmin();
+      allow update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // --- listing_submissions: zgłoszenia "Chcę sprzedać" ---
+    // Tworzenie: zalogowany użytkownik. Odczyt i aktualizacja (status, przypisanie): admin.
+    match /listing_submissions/{submissionId} {
+      allow read, update: if isAdmin();
+      allow create: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // --- document_downloads: logi pobrań dokumentów (panel admina) ---
+    // Tworzenie tylko z Cloud Function (getDocumentWithWatermark); klient nie pisze.
+    match /document_downloads/{logId} {
+      allow read: if isAdmin();
+      allow create: if false;
+      allow update, delete: if isAdmin();
     }
   }
 }

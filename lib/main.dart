@@ -1,14 +1,41 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'core/router/app_router.dart';
-import 'core/theme/app_theme.dart';
+import 'firebase_options.dart';
+import 'core/auth/auth_service.dart';
 import 'core/config/app_config.dart';
+import 'core/router/app_router.dart';
+import 'core/state/providers/auth_provider.dart';
 import 'core/state/providers/favorites_provider.dart';
+import 'core/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final prefs = await SharedPreferences.getInstance();
+  // Avoid duplicate-app error on hot restart (web persists Firebase across restarts)
+  if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  }
+
+  // Web: obsługa wyniku signInWithRedirect po powrocie z Google/Apple (unikamy błędu COOP).
+  // W Safari getRedirectResult() może rzucać (COOP/cookies) – nie przerywamy startu aplikacji.
+  if (kIsWeb) {
+    try {
+      await AuthService().handleWebRedirectResult();
+    } catch (_) {
+      // Ignoruj błąd redirect (np. Safari, tryb prywatny) – użytkownik może zalogować się ponownie.
+    }
+  }
+
+  // SharedPreferences na Safari Web może zawieść (tryb prywatny, blokada storage) – fallback do null = brak persystencji ulubionych.
+  SharedPreferences? prefs;
+  try {
+    prefs = await SharedPreferences.getInstance();
+  } catch (_) {
+    prefs = null;
+  }
+
   runApp(
     ProviderScope(
       overrides: [
@@ -37,6 +64,9 @@ class _MyAppState extends ConsumerState<MyApp> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(currentUserProvider, (_, __) {
+      AppRouter.authRefreshNotifier.value++;
+    });
     return MaterialApp.router(
       title: AppConfig.appName,
       debugShowCheckedModeBanner: false,

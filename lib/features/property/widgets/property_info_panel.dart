@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_colors.dart';
@@ -6,13 +7,14 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/state/models/property_model.dart';
+import '../../../core/state/providers/favorites_provider.dart';
 import '../../../widgets/common/custom_button.dart';
 import 'contact_form.dart';
 
 /// Karta informacyjna oferty: cena, parametry, kontakt, akcje.
 /// Mobile-first: zwięzłe sekcje, grid parametrów, CTA do formularza w bottom sheet.
 /// Desktop: pełny formularz, sticky-friendly layout.
-class PropertyInfoPanel extends StatelessWidget {
+class PropertyInfoPanel extends ConsumerWidget {
   final Property property;
 
   /// Na mobile: wywołane po naciśnięciu "Zapytaj o ofertę" – np. otwarcie bottom sheet z formularzem.
@@ -55,7 +57,7 @@ class PropertyInfoPanel extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < AppSpacing.mobileBreakpoint;
     final isNarrow = screenWidth < AppSpacing.tabletBreakpoint;
@@ -191,7 +193,7 @@ class PropertyInfoPanel extends StatelessWidget {
             ),
           ),
 
-          // —— Akcje (ulubione, udostępnij) ——
+          // —— Akcje (zapisz ofertę, udostępnij) ——
           Padding(
             padding: EdgeInsets.fromLTRB(
               AppSpacing.lg,
@@ -202,14 +204,7 @@ class PropertyInfoPanel extends StatelessWidget {
             child: Row(
               children: [
                 Expanded(
-                  child: CustomButton(
-                    label: 'Ulubione',
-                    icon: AppIcons.favorites,
-                    onPressed: () {},
-                    variant: ButtonVariant.outlined,
-                    size: ButtonSize.small,
-                    fullWidth: true,
-                  ),
+                  child: _SaveOfferButton(property: property),
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
@@ -311,6 +306,41 @@ class _ParamItem {
   final String label;
   final String value;
   _ParamItem(this.icon, this.label, this.value);
+}
+
+/// Przycisk „Zapisz ofertę” / „Zapisano” – dodaje/usuwa ofertę z ulubionych.
+class _SaveOfferButton extends ConsumerWidget {
+  const _SaveOfferButton({required this.property});
+
+  final Property property;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final favoriteIds = ref.watch(favoritesProvider);
+    final isSaved = favoriteIds.contains(property.id);
+
+    return CustomButton(
+      label: isSaved ? 'Zapisano' : 'Zapisz ofertę',
+      icon: isSaved ? AppIcons.favorites : AppIcons.favoriteBorder,
+      onPressed: () {
+        ref.read(favoritesProvider.notifier).toggle(property.id);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                isSaved ? 'Usunięto z zapisanych ofert' : 'Oferta zapisana',
+              ),
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      },
+      variant: isSaved ? ButtonVariant.primary : ButtonVariant.outlined,
+      size: ButtonSize.small,
+      fullWidth: true,
+    );
+  }
 }
 
 class _SectionHeader extends StatelessWidget {

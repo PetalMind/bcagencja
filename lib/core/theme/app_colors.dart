@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 /// Application color palette
 class AppColors {
-  // Primary colors from design
+  // Primary – ciemny brąz/granat
   static const Color primaryDark = Color(0xFF181D24);
+  // Accent – brązowo-pomarańczowy
   static const Color accent = Color(0xFFBE6E59);
   
   // Neutral colors
@@ -22,6 +23,9 @@ class AppColors {
   static const Color grey800 = Color(0xFF1F2937);
   static const Color grey900 = Color(0xFF111827);
   
+  // CTA highlight – Amber (ważne akcje: Upgrade VDR)
+  static const Color ctaHighlight = Color(0xFFF59E0B);
+
   // Semantic colors
   static const Color success = Color(0xFF10B981);
   static const Color warning = Color(0xFFF59E0B);
@@ -48,6 +52,6 @@ class AppColors {
   static const Color borderDark = grey400;
   
   // Overlay colors
-  static Color overlay = black.withOpacity(0.5);
-  static Color overlayLight = black.withOpacity(0.2);
+  static Color get overlay => black.withValues(alpha: 0.5);
+  static Color get overlayLight => black.withValues(alpha: 0.2);
 }
