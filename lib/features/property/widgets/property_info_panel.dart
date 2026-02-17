@@ -8,7 +8,9 @@ import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/state/models/property_model.dart';
 import '../../../core/state/providers/favorites_provider.dart';
+import '../../../core/state/providers/smart_favorites_provider.dart';
 import '../../../widgets/common/custom_button.dart';
+import '../../../widgets/common/save_to_collection_modal.dart';
 import 'contact_form.dart';
 
 /// Karta informacyjna oferty: cena, parametry, kontakt, akcje.
@@ -308,7 +310,7 @@ class _ParamItem {
   _ParamItem(this.icon, this.label, this.value);
 }
 
-/// Przycisk „Zapisz ofertę” / „Zapisano” – dodaje/usuwa ofertę z ulubionych.
+/// Przycisk „Zapisz ofertę” / „Zapisano” – otwiera modal kolekcji lub usuwa z zapisanych.
 class _SaveOfferButton extends ConsumerWidget {
   const _SaveOfferButton({required this.property});
 
@@ -317,28 +319,45 @@ class _SaveOfferButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final favoriteIds = ref.watch(favoritesProvider);
+    final smart = ref.watch(smartFavoritesProvider);
     final isSaved = favoriteIds.contains(property.id);
+    final entry = smart.entryFor(property.id);
 
-    return CustomButton(
-      label: isSaved ? 'Zapisano' : 'Zapisz ofertę',
-      icon: isSaved ? AppIcons.favorites : AppIcons.favoriteBorder,
-      onPressed: () {
-        ref.read(favoritesProvider.notifier).toggle(property.id);
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                isSaved ? 'Usunięto z zapisanych ofert' : 'Oferta zapisana',
-              ),
-              duration: const Duration(seconds: 2),
-              behavior: SnackBarBehavior.floating,
+    if (isSaved) {
+      return Row(
+        children: [
+          Expanded(
+            child: CustomButton(
+              label: 'Zapisano',
+              icon: AppIcons.favorites,
+              variant: ButtonVariant.primary,
+              size: ButtonSize.small,
+              fullWidth: true,
+              onPressed: () {
+                showSaveToCollectionModal(
+                  context: context,
+                  property: property,
+                  existingEntry: entry,
+                );
+              },
             ),
-          );
-        }
-      },
-      variant: isSaved ? ButtonVariant.primary : ButtonVariant.outlined,
+          ),
+        ],
+      );
+    }
+    return CustomButton(
+      label: 'Zapisz ofertę',
+      icon: AppIcons.favoriteBorder,
+      variant: ButtonVariant.outlined,
       size: ButtonSize.small,
       fullWidth: true,
+      onPressed: () {
+        showSaveToCollectionModal(
+          context: context,
+          property: property,
+          existingEntry: null,
+        );
+      },
     );
   }
 }

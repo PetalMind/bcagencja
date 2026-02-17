@@ -8,7 +8,9 @@ import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/state/models/property_model.dart';
 import '../../../core/state/providers/favorites_provider.dart';
+import '../../../core/state/providers/smart_favorites_provider.dart';
 import '../../../widgets/common/watermarked_image.dart';
+import '../../../widgets/common/save_to_collection_modal.dart';
 import '../../property/widgets/property_gallery.dart';
 
 class ListingGridTile extends ConsumerStatefulWidget {
@@ -181,9 +183,20 @@ class _ListingGridTileState extends ConsumerState<ListingGridTile> {
                               minimumSize: const Size(28, 28),
                             ),
                             onPressed: () {
-                              ref
-                                  .read(favoritesProvider.notifier)
-                                  .toggle(property.id);
+                              if (isFavorite) {
+                                ref
+                                    .read(smartFavoritesProvider.notifier)
+                                    .removeOffer(property.id);
+                              } else {
+                                final entry = ref
+                                    .read(smartFavoritesProvider)
+                                    .entryFor(property.id);
+                                showSaveToCollectionModal(
+                                  context: context,
+                                  property: property,
+                                  existingEntry: entry,
+                                );
+                              }
                             },
                           ),
                         ),

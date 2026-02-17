@@ -9,6 +9,7 @@ import 'core/config/app_config.dart';
 import 'core/router/app_router.dart';
 import 'core/state/providers/auth_provider.dart';
 import 'core/state/providers/favorites_provider.dart';
+import 'core/state/providers/smart_favorites_provider.dart';
 import 'core/theme/app_theme.dart';
 
 void main() async {
@@ -59,6 +60,7 @@ class _MyAppState extends ConsumerState<MyApp> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(favoritesProvider.notifier).initialize();
+      ref.read(smartFavoritesProvider.notifier).initialize();
     });
   }
 
