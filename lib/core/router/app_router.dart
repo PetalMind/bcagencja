@@ -8,8 +8,6 @@ import '../../features/home/home_page.dart';
 import '../../features/search/search_page.dart';
 import '../../features/listings/listings_results_page.dart';
 import '../../features/property/property_detail_page.dart';
-import '../../features/add_listing/add_listing_page.dart';
-import '../../features/add_listing/add_listing_success_page.dart';
 import '../../features/dashboard/dashboard_page.dart';
 import '../../features/dashboard/pages/my_listings_page.dart';
 import '../../features/dashboard/pages/favorites_page.dart';
@@ -20,6 +18,7 @@ import '../../features/dashboard/pages/settings_page.dart';
 import '../../features/dashboard/pages/admin_users_page.dart';
 import '../../features/dashboard/pages/admin_submissions_page.dart';
 import '../../features/dashboard/pages/admin_logs_page.dart';
+import '../../features/dashboard/pages/admin_placeholder_page.dart';
 import '../../features/about/about_page.dart';
 import '../../features/blog/blog_page.dart';
 import '../../features/contact/contact_page.dart';
@@ -33,6 +32,7 @@ import '../../features/verify_account/verify_account_page.dart';
 import '../../features/sell_submission/sell_submission_page.dart';
 import '../../features/sell_submission/sell_submission_success_page.dart';
 import '../../widgets/common/button_showcase.dart';
+import '../../widgets/layout/scaffold_with_sidebar.dart';
 
 /// Application router configuration
 class AppRouter {
@@ -50,8 +50,8 @@ class AppRouter {
   static const String search = '/search';
   static const String searchResults = '/search/results';
   static const String propertyDetail = '/property/:id';
+  /// Stary URL /add-listing przekierowujemy na /chce-sprzedac
   static const String addListing = '/add-listing';
-  static const String addListingSuccess = '/add-listing/success';
   static const String dashboard = '/dashboard';
   static const String dashboardListings = '/dashboard/listings';
   static const String dashboardFavorites = '/dashboard/favorites';
@@ -62,6 +62,8 @@ class AppRouter {
   static const String dashboardAdminUsers = '/dashboard/admin/users';
   static const String dashboardAdminSubmissions = '/dashboard/admin/submissions';
   static const String dashboardAdminLogs = '/dashboard/admin/logs';
+  /// Ścieżka do prototypu podstrony admina (pageId: overview, regions-list, itd.)
+  static String dashboardAdminPanel(String pageId) => '/dashboard/admin/panel/$pageId';
   // Dodatkowe dla sidebar (Investor L2/L3, Agent, Director, Admin)
   static const String dashboardProfile = '/dashboard/profile';
   static const String dashboardDocuments = '/dashboard/documents';
@@ -96,63 +98,28 @@ class AppRouter {
               : dashboard;
         }
 
-        // Niezalogowany na dashboard / add-listing → przekieruj do logowania
+        // Niezalogowany na dashboard → przekieruj do logowania
         if (user == null) {
-          if (loc == dashboard || loc.startsWith('$dashboard/') ||
-              loc == addListing || loc.startsWith('$addListing')) {
+          if (loc == dashboard || loc.startsWith('$dashboard/')) {
             return '$logowanie?returnTo=${Uri.encodeComponent(loc)}';
           }
         }
 
-        // Inwestor (nie Agent/Dyrektor/Admin) na add-listing → brak dostępu
-        if (!RolePermissions.canAddListings(roleLevel) &&
-            (loc == addListing || loc.startsWith('$addListing/'))) {
-          return dashboard;
+        // Stary URL /add-listing → przekieruj na formularz „Chcę sprzedać”
+        if (loc == addListing || loc.startsWith('$addListing/')) {
+          return chceSprzedac;
         }
 
-        // Panel admina: tylko ADMIN
+        // Panel admina: tylko ADMIN (wszystkie ścieżki /dashboard/admin/*)
         if (!RolePermissions.hasAdminDashboard(roleLevel) &&
-            (loc.contains('/admin/users') ||
-                loc.contains('/admin/submissions') ||
-                loc.contains('/admin/logs'))) {
+            loc.contains('/dashboard/admin')) {
           return dashboard;
         }
       } catch (_) {}
       return null;
     },
     routes: [
-      // Home page
-      GoRoute(
-        path: home,
-        name: 'home',
-        builder: (context, state) => const HomePage(),
-      ),
-      // Baza ofert (teasery) – główny punkt wejścia dla inwestorów
-      GoRoute(
-        path: oferty,
-        name: 'oferty',
-        builder: (context, state) => const ListingsResultsPage(),
-      ),
-      // Kalkulator ROI – publiczne narzędzie
-      GoRoute(
-        path: kalkulatorRoi,
-        name: 'kalkulatorRoi',
-        builder: (context, state) => const RoiCalculatorPage(),
-      ),
-      // Chcę sprzedać – lead magnet (formularz zgłoszenia → listing_submissions, status: pending)
-      GoRoute(
-        path: chceSprzedac,
-        name: 'chceSprzedac',
-        builder: (context, state) => const SellSubmissionPage(),
-        routes: [
-          GoRoute(
-            path: 'sukces',
-            name: 'chceSprzedacSuccess',
-            builder: (context, state) => const SellSubmissionSuccessPage(),
-          ),
-        ],
-      ),
-      // Logowanie (Google / Apple / Email) – returnTo: ścieżka po zalogowaniu
+      // Logowanie – BEZ sidebara (pełnoekranowy widok auth)
       GoRoute(
         path: logowanie,
         name: 'logowanie',
@@ -160,7 +127,51 @@ class AppRouter {
           returnTo: state.uri.queryParameters['returnTo'],
         ),
       ),
-      // Rejestracja – wybór OAuth lub NIP
+      // Wszystkie pozostałe widoki w shellu ze stałym sidebarem
+      ShellRoute(
+        builder: (context, state, child) => ScaffoldWithSidebar(
+          currentRoute: state.matchedLocation,
+          child: child,
+        ),
+        routes: [
+          // Home page
+          GoRoute(
+            path: home,
+            name: 'home',
+            builder: (context, state) => const HomePage(),
+          ),
+          // Baza ofert (teasery) – główny punkt wejścia dla inwestorów
+          GoRoute(
+            path: oferty,
+            name: 'oferty',
+            builder: (context, state) => const ListingsResultsPage(),
+          ),
+          // Kalkulator ROI – publiczne narzędzie
+          GoRoute(
+            path: kalkulatorRoi,
+            name: 'kalkulatorRoi',
+            builder: (context, state) => const RoiCalculatorPage(),
+          ),
+          // Chcę sprzedać – lead magnet (formularz zgłoszenia → listing_submissions, status: pending)
+          GoRoute(
+            path: chceSprzedac,
+            name: 'chceSprzedac',
+            builder: (context, state) => const SellSubmissionPage(),
+            routes: [
+              GoRoute(
+                path: 'sukces',
+                name: 'chceSprzedacSuccess',
+                builder: (context, state) {
+                  final extra = state.extra as Map<String, dynamic>?;
+                  return SellSubmissionSuccessPage(
+                    submissionId: extra?['submissionId'] as String?,
+                    email: extra?['email'] as String?,
+                  );
+                },
+              ),
+            ],
+          ),
+          // Rejestracja – wybór OAuth lub NIP
       GoRoute(
         path: rejestracja,
         name: 'rejestracja',
@@ -226,20 +237,6 @@ class AppRouter {
         },
       ),
       
-      // Add listing page
-      GoRoute(
-        path: addListing,
-        name: 'addListing',
-        builder: (context, state) => const AddListingPage(),
-        routes: [
-          GoRoute(
-            path: 'success',
-            name: 'addListingSuccess',
-            builder: (context, state) => const AddListingSuccessPage(),
-          ),
-        ],
-      ),
-      
       // Dashboard routes
       GoRoute(
         path: dashboard,
@@ -294,6 +291,14 @@ class AppRouter {
             builder: (context, state) => const AdminLogsPage(),
           ),
           GoRoute(
+            path: 'admin/panel/:pageId',
+            name: 'dashboardAdminPanel',
+            builder: (context, state) {
+              final pageId = state.pathParameters['pageId'] ?? 'overview';
+              return AdminPlaceholderPage(pageId: pageId);
+            },
+          ),
+          GoRoute(
             path: 'profile',
             name: 'dashboardProfile',
             builder: (context, state) => const SettingsPage(),
@@ -343,8 +348,10 @@ class AppRouter {
         name: 'buttonShowcase',
         builder: (context, state) => const ButtonShowcase(),
       ),
+        ],
+      ),
     ],
-    
+
     // Error page
     errorBuilder: (context, state) => Scaffold(
       appBar: AppBar(

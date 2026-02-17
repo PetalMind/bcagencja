@@ -2,10 +2,13 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/saved_offer_model.dart';
+import 'auth_provider.dart';
 import 'favorites_provider.dart';
 
-const String _collectionsKey = 'smart_favorites_collections';
-const String _entriesKey = 'smart_favorites_entries';
+const String _collectionsKeyPrefix = 'smart_favorites_collections';
+const String _entriesKeyPrefix = 'smart_favorites_entries';
+
+String _keyForUser(String prefix, String? userId) => '${prefix}_${userId ?? 'guest'}';
 
 /// Stan: lista kolekcji + mapa propertyId -> SavedOfferEntry.
 class SmartFavoritesState {
@@ -31,17 +34,21 @@ class SmartFavoritesState {
 }
 
 class SmartFavoritesNotifier extends Notifier<SmartFavoritesState> {
+  String? _loadedUserId;
+
   @override
   SmartFavoritesState build() {
     return const SmartFavoritesState();
   }
 
   SharedPreferences? get _prefs => ref.read(sharedPreferencesProvider);
+  String? get _currentUserId => ref.read(currentUserProvider).valueOrNull?.id;
 
-  Future<void> _loadCollections() async {
+  Future<void> _loadCollections(String? userId) async {
     final prefs = _prefs;
     if (prefs == null) return;
-    final raw = prefs.getString(_collectionsKey);
+    final key = _keyForUser(_collectionsKeyPrefix, userId);
+    final raw = prefs.getString(key);
     if (raw == null || raw.isEmpty) return;
     try {
       final list = jsonDecode(raw) as List<dynamic>?;
@@ -54,17 +61,19 @@ class SmartFavoritesNotifier extends Notifier<SmartFavoritesState> {
     } catch (_) {}
   }
 
-  Future<void> _saveCollections() async {
+  Future<void> _saveCollections(String? userId) async {
     final prefs = _prefs;
     if (prefs == null) return;
+    final key = _keyForUser(_collectionsKeyPrefix, userId);
     final list = state.collections.map((e) => e.toJson()).toList();
-    await prefs.setString(_collectionsKey, jsonEncode(list));
+    await prefs.setString(key, jsonEncode(list));
   }
 
-  Future<void> _loadEntries() async {
+  Future<void> _loadEntries(String? userId) async {
     final prefs = _prefs;
     if (prefs == null) return;
-    final raw = prefs.getString(_entriesKey);
+    final key = _keyForUser(_entriesKeyPrefix, userId);
+    final raw = prefs.getString(key);
     if (raw == null || raw.isEmpty) return;
     try {
       final map = jsonDecode(raw) as Map<String, dynamic>?;
@@ -80,21 +89,29 @@ class SmartFavoritesNotifier extends Notifier<SmartFavoritesState> {
     } catch (_) {}
   }
 
-  Future<void> _saveEntries() async {
+  Future<void> _saveEntries(String? userId) async {
     final prefs = _prefs;
     if (prefs == null) return;
+    final key = _keyForUser(_entriesKeyPrefix, userId);
     final map = state.entries.map((k, v) => MapEntry(k, v.toJson()));
-    await prefs.setString(_entriesKey, jsonEncode(map));
+    await prefs.setString(key, jsonEncode(map));
   }
 
-  /// Inicjalizacja: wczytaj kolekcje i wpisy z dysku. Wywołaj raz przy starcie.
+  /// Inicjalizacja: zapisuje dane poprzedniego użytkownika, wczytuje dane aktualnego.
+  /// Wywołaj przy starcie oraz przy zmianie użytkownika (logowanie/wylogowanie).
   Future<void> initialize() async {
-    await _loadCollections();
+    final newUserId = _currentUserId;
+    if (_loadedUserId != null && _loadedUserId != newUserId) {
+      await _saveCollections(_loadedUserId);
+      await _saveEntries(_loadedUserId);
+    }
+    await _loadCollections(newUserId);
     if (state.collections.isEmpty) {
       state = state.copyWith(collections: defaultCollections);
-      await _saveCollections();
+      await _saveCollections(newUserId);
     }
-    await _loadEntries();
+    await _loadEntries(newUserId);
+    _loadedUserId = newUserId;
   }
 
   /// Zapisanie oferty z wyborem kolekcji, notatki i powiadomień.
@@ -119,7 +136,7 @@ class SmartFavoritesNotifier extends Notifier<SmartFavoritesState> {
     state = state.copyWith(
       entries: Map.from(state.entries)..[propertyId] = entry,
     );
-    await _saveEntries();
+    await _saveEntries(_loadedUserId ?? _currentUserId);
     await ref.read(favoritesProvider.notifier).add(propertyId);
   }
 
@@ -128,7 +145,7 @@ class SmartFavoritesNotifier extends Notifier<SmartFavoritesState> {
     state = state.copyWith(
       entries: Map.from(state.entries)..[entry.propertyId] = entry,
     );
-    await _saveEntries();
+    await _saveEntries(_loadedUserId ?? _currentUserId);
   }
 
   /// Usunięcie zapisanej oferty (też z favoritesProvider).
@@ -136,7 +153,7 @@ class SmartFavoritesNotifier extends Notifier<SmartFavoritesState> {
     state = state.copyWith(
       entries: Map.from(state.entries)..remove(propertyId),
     );
-    await _saveEntries();
+    await _saveEntries(_loadedUserId ?? _currentUserId);
     await ref.read(favoritesProvider.notifier).remove(propertyId);
   }
 
@@ -146,7 +163,7 @@ class SmartFavoritesNotifier extends Notifier<SmartFavoritesState> {
     state = state.copyWith(
       collections: [...state.collections, c],
     );
-    await _saveCollections();
+    await _saveCollections(_loadedUserId ?? _currentUserId);
   }
 
   /// Usunięcie kolekcji (nie usuwa ofert, tylko odznacza je z tej kolekcji).
@@ -161,8 +178,8 @@ class SmartFavoritesNotifier extends Notifier<SmartFavoritesState> {
         );
       }),
     );
-    await _saveCollections();
-    await _saveEntries();
+    await _saveCollections(_loadedUserId ?? _currentUserId);
+    await _saveEntries(_loadedUserId ?? _currentUserId);
   }
 
   /// Liczba ofert w danej kolekcji.

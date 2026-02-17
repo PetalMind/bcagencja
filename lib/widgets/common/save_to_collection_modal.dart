@@ -7,6 +7,7 @@ import '../../core/theme/app_icons.dart';
 import '../../core/state/models/property_model.dart';
 import '../../core/state/models/saved_offer_model.dart';
 import '../../core/state/providers/smart_favorites_provider.dart';
+import '../../core/state/providers/notification_preferences_provider.dart';
 import 'custom_button.dart';
 
 /// Modal „Zapisz do kolekcji”: wybór kolekcji, notatka, powiadomienia.
@@ -266,6 +267,25 @@ class _SaveToCollectionSheetState extends ConsumerState<_SaveToCollectionSheet> 
                     onChanged: (v) => setState(() => _notifyOthersView = v ?? false),
                     title: const Text('Ktoś inny ogląda tę ofertę'),
                     controlAffinity: ListTileControlAffinity.leading,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  const Divider(height: 1),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'Powiadomienia w aplikacji',
+                    style: AppTextStyles.labelLarge.copyWith(color: AppColors.textSecondary),
+                  ),
+                  SwitchListTile(
+                    value: ref.watch(notificationPreferencesProvider).pushEnabled,
+                    onChanged: (v) => ref.read(notificationPreferencesProvider.notifier).setPushEnabled(v),
+                    title: const Text('Push (aplikacja)'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  SwitchListTile(
+                    value: ref.watch(notificationPreferencesProvider).emailEnabled,
+                    onChanged: (v) => ref.read(notificationPreferencesProvider.notifier).setEmailEnabled(v),
+                    title: const Text('E-mail'),
                     contentPadding: EdgeInsets.zero,
                   ),
                   SizedBox(height: isMobile ? AppSpacing.xl : AppSpacing.lg),

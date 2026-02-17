@@ -10,6 +10,7 @@ import 'core/router/app_router.dart';
 import 'core/state/providers/auth_provider.dart';
 import 'core/state/providers/favorites_provider.dart';
 import 'core/state/providers/smart_favorites_provider.dart';
+import 'core/state/providers/notification_preferences_provider.dart';
 import 'core/theme/app_theme.dart';
 
 void main() async {
@@ -61,12 +62,19 @@ class _MyAppState extends ConsumerState<MyApp> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(favoritesProvider.notifier).initialize();
       ref.read(smartFavoritesProvider.notifier).initialize();
+      ref.read(notificationPreferencesProvider.notifier).initialize();
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(currentUserProvider, (_, __) {
+    ref.listen(currentUserProvider, (prev, next) {
+      final prevId = prev?.valueOrNull?.id;
+      final nextId = next?.valueOrNull?.id;
+      if (prevId != nextId) {
+        ref.read(favoritesProvider.notifier).initialize();
+        ref.read(smartFavoritesProvider.notifier).initialize();
+      }
       AppRouter.authRefreshNotifier.value++;
     });
     return MaterialApp.router(

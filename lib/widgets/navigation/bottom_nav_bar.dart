@@ -54,7 +54,7 @@ class BottomNavBar extends StatelessWidget {
             context.go(AppRouter.search);
             break;
           case 2:
-            context.go(AppRouter.addListing);
+            context.go(AppRouter.chceSprzedac);
             break;
           case 3:
             context.go(AppRouter.dashboardFavorites);

@@ -9,6 +9,7 @@ import '../../core/theme/app_text_styles.dart';
 import '../../core/router/app_router.dart';
 import '../../core/state/providers/auth_provider.dart';
 import '../../widgets/common/custom_button.dart';
+import '../../widgets/layout/scaffold_with_sidebar.dart';
 
 /// Topbar dynamiczny względem stanu auth i roli użytkownika (WDROZENIE_FUNKCJONALNOSCI 4.1):
 /// - Anonim: Zaloguj, bez "Dodaj ogłoszenie", bez Panelu.
@@ -40,8 +41,8 @@ class AppBarCustom extends ConsumerWidget implements PreferredSizeWidget {
     final user = asyncUser.valueOrNull;
     final isLoggedIn = user != null;
     final authLoading = asyncUser.isLoading;
-    final showAddListing = isLoggedIn && (user?.hasPartnerDashboard ?? false);
-    final showVerifyAccount = isLoggedIn && (user?.hasIdentityVerifiedAccess != true);
+    final showAddListing = isLoggedIn && user.hasPartnerDashboard;
+    final showVerifyAccount = isLoggedIn && (user.hasIdentityVerifiedAccess != true);
 
     return AppBar(
       backgroundColor: AppColors.primaryDark,
@@ -61,10 +62,13 @@ class AppBarCustom extends ConsumerWidget implements PreferredSizeWidget {
             )
           : isMobile
               ? Builder(
-                  builder: (context) => IconButton(
-                    icon: const Icon(AppIcons.menu),
-                    onPressed: () => Scaffold.of(context).openDrawer(),
-                  ),
+                  builder: (context) {
+                    final openDrawer = SidebarShellScope.maybeOpenDrawerOf(context);
+                    return IconButton(
+                      icon: const Icon(AppIcons.menu),
+                      onPressed: openDrawer ?? () => Scaffold.of(context).openDrawer(),
+                    );
+                  },
                 )
               : null,
       title: title != null
@@ -170,7 +174,7 @@ class AppBarCustom extends ConsumerWidget implements PreferredSizeWidget {
         if (isMobile)
           IconButton(
             icon: const Icon(AppIcons.add),
-            onPressed: () => context.go(AppRouter.addListing),
+            onPressed: () => context.go(AppRouter.chceSprzedac),
             tooltip: 'Dodaj ogłoszenie',
           )
         else
@@ -179,7 +183,7 @@ class AppBarCustom extends ConsumerWidget implements PreferredSizeWidget {
             icon: AppIcons.add,
             variant: ButtonVariant.gradient,
             size: ButtonSize.medium,
-            onPressed: () => context.go(AppRouter.addListing),
+            onPressed: () => context.go(AppRouter.chceSprzedac),
           ),
         const SizedBox(width: AppSpacing.sm),
       ],

@@ -49,13 +49,7 @@ class HomeTilesSection extends StatelessWidget {
           onTap: () => context.go(AppRouter.oferty),
         ),
         const SizedBox(height: AppSpacing.lg),
-        _HomeTile(
-          icon: Icons.real_estate_agent_rounded,
-          title: 'Chcę sprzedać nieruchomość / grunt',
-          subtitle: 'Zgłoś swoją nieruchomość – skontaktujemy się i zaproponujemy dalsze kroki.',
-          ctaLabel: 'Zgłoś nieruchomość',
-          onTap: () => context.go(AppRouter.chceSprzedac),
-        ),
+        _SellPropertyTile(onTap: () => context.go(AppRouter.chceSprzedac)),
         const SizedBox(height: AppSpacing.lg),
         _HomeTile(
           icon: Icons.calculate_rounded,
@@ -86,13 +80,7 @@ class HomeTilesSection extends StatelessWidget {
         ),
         const SizedBox(width: AppSpacing.lg),
         Expanded(
-          child: _HomeTile(
-            icon: Icons.real_estate_agent_rounded,
-            title: 'Chcę sprzedać nieruchomość / grunt',
-            subtitle: 'Zgłoś swoją nieruchomość – skontaktujemy się i zaproponujemy dalsze kroki.',
-            ctaLabel: 'Zgłoś nieruchomość',
-            onTap: () => context.go(AppRouter.chceSprzedac),
-          ),
+          child: _SellPropertyTile(onTap: () => context.go(AppRouter.chceSprzedac)),
         ),
         const SizedBox(width: AppSpacing.lg),
         Expanded(
@@ -106,6 +94,97 @@ class HomeTilesSection extends StatelessWidget {
         ),
       ],
       ),
+    );
+  }
+}
+
+/// Kafel lead magnet „Chcę sprzedać” – nagłówek pytanie, 3 korzyści, CTA, social proof.
+class _SellPropertyTile extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _SellPropertyTile({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < AppSpacing.mobileBreakpoint;
+
+    return Material(
+      color: AppColors.white,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+      elevation: 2,
+      shadowColor: AppColors.black.withValues(alpha: 0.08),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        child: Padding(
+          padding: EdgeInsets.all(isMobile ? AppSpacing.lg : AppSpacing.xl),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '💰 Sprzedajesz nieruchomość komercyjną?',
+                style: AppTextStyles.titleLarge.copyWith(
+                  color: AppColors.primaryDark,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              SizedBox(height: isMobile ? AppSpacing.md : AppSpacing.lg),
+              _benefit('Bezpłatna wycena w 48h'),
+              const SizedBox(height: AppSpacing.xs),
+              _benefit('Dostęp do sieci 500+ zweryfikowanych inwestorów'),
+              const SizedBox(height: AppSpacing.xs),
+              _benefit('Pełna dyskrecja i profesjonalna obsługa'),
+              SizedBox(height: isMobile ? AppSpacing.lg : AppSpacing.xl),
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      'Sprawdź, ile jest warta Twoja nieruchomość',
+                      style: AppTextStyles.labelLarge.copyWith(
+                        color: AppColors.accent,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Icon(
+                    AppIcons.arrowForward,
+                    size: AppSpacing.iconSm,
+                    color: AppColors.accent,
+                  ),
+                ],
+              ),
+              SizedBox(height: isMobile ? AppSpacing.md : AppSpacing.lg),
+              Row(
+                children: [
+                  ...List.generate(5, (_) => Icon(Icons.star_rounded, size: 14, color: AppColors.ctaHighlight)),
+                  const SizedBox(width: AppSpacing.xs),
+                  Text(
+                    '4.9/5 (127 sprzedanych nieruchomości)',
+                    style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _benefit(String text) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('• ', style: AppTextStyles.bodyMedium.copyWith(color: AppColors.accent, fontWeight: FontWeight.w600)),
+        Expanded(
+          child: Text(
+            text,
+            style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary, height: 1.4),
+          ),
+        ),
+      ],
     );
   }
 }

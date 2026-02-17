@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../widgets/navigation/app_bar_custom.dart';
-import '../../widgets/navigation/sidebar.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_colors.dart';
@@ -96,7 +95,6 @@ class DashboardPage extends ConsumerWidget {
     final media = MediaQuery.of(context);
     final screenWidth = media.size.width;
     final padding = media.padding;
-    final isDesktop = screenWidth >= AppSpacing.tabletBreakpoint;
     final isTablet = screenWidth >= AppSpacing.mobileBreakpoint && screenWidth < AppSpacing.tabletBreakpoint;
     final isMobile = screenWidth < AppSpacing.mobileBreakpoint;
     final user = ref.watch(currentUserProvider).valueOrNull;
@@ -123,43 +121,31 @@ class DashboardPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: const AppBarCustom(),
-      drawer: !isDesktop ? const Sidebar() : null,
-      body: Row(
-        children: [
-          if (isDesktop)
-            const SizedBox(
-              width: 280,
-              child: Sidebar(),
-            ),
-          Expanded(
-            child: SafeArea(
-              top: false,
-              bottom: false,
-              left: false,
-              right: false,
-              child: SingleChildScrollView(
-                padding: scrollPadding,
-                child: isInvestor && !hasPartner
-                    ? _InvestorDashboardContent(
-                        isMobile: isMobile,
-                        isTablet: isTablet,
-                        showVerifyCta: showVerifyCta,
-                        showVdrCta: showVdrCta,
-                        showNdaBanner: user?.shouldShowNdaBanner ?? false,
-                        favoritesCount: favoritesCount,
-                      )
-                    : _DefaultDashboardContent(
-                        isMobile: isMobile,
-                        isTablet: isTablet,
-                        hasPartner: hasPartner,
-                        showVerifyCta: showVerifyCta,
-                        showNdaBanner: user?.shouldShowNdaBanner ?? false,
-                        sections: sections,
-                      ),
-              ),
-            ),
-          ),
-        ],
+      body: SafeArea(
+        top: false,
+        bottom: false,
+        left: false,
+        right: false,
+        child: SingleChildScrollView(
+          padding: scrollPadding,
+          child: isInvestor && !hasPartner
+              ? _InvestorDashboardContent(
+                  isMobile: isMobile,
+                  isTablet: isTablet,
+                  showVerifyCta: showVerifyCta,
+                  showVdrCta: showVdrCta,
+                  showNdaBanner: user?.shouldShowNdaBanner ?? false,
+                  favoritesCount: favoritesCount,
+                )
+              : _DefaultDashboardContent(
+                  isMobile: isMobile,
+                  isTablet: isTablet,
+                  hasPartner: hasPartner,
+                  showVerifyCta: showVerifyCta,
+                  showNdaBanner: user?.shouldShowNdaBanner ?? false,
+                  sections: sections,
+                ),
+        ),
       ),
     );
   }
@@ -583,7 +569,7 @@ class _DefaultDashboardContent extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: AppSpacing.lg),
             child: _QuickActionCta(
-              onTap: () => context.push(AppRouter.addListing),
+              onTap: () => context.push(AppRouter.chceSprzedac),
               isMobile: isMobile,
             ),
           ),

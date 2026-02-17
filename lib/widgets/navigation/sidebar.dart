@@ -36,10 +36,14 @@ class _SidebarItem {
 
 class Sidebar extends ConsumerStatefulWidget {
   final String? currentRoute;
+  /// Opcjonalny prefix kluczy (np. 'drawer' / 'body') – unika Duplicate GlobalKey
+  /// gdy w drzewie są dwa Sidebary (drawer + stały pasek).
+  final String? keyPrefix;
 
   const Sidebar({
     super.key,
     this.currentRoute,
+    this.keyPrefix,
   });
 
   @override
@@ -357,7 +361,7 @@ class _SidebarState extends ConsumerState<Sidebar> {
         title: 'Moje nieruchomości',
         icon: AppIcons.office,
         children: [
-          _SidebarItem(title: 'Dodaj nową ofertę', icon: AppIcons.add, route: AppRouter.addListing),
+          _SidebarItem(title: 'Dodaj nową ofertę', icon: AppIcons.add, route: AppRouter.chceSprzedac),
           _SidebarItem(title: 'Aktywne oferty', icon: Icons.check_circle, route: AppRouter.dashboardListings),
           _SidebarItem(title: 'Wersje robocze', icon: Icons.edit_note, route: AppRouter.dashboardListings),
           _SidebarItem(title: 'Archiwalne', icon: Icons.archive, route: AppRouter.dashboardListings),
@@ -367,9 +371,9 @@ class _SidebarState extends ConsumerState<Sidebar> {
         title: 'Formularze wrzutek',
         icon: Icons.description_outlined,
         children: [
-          _SidebarItem(title: 'Grunt', icon: AppIcons.land, route: AppRouter.addListing),
-          _SidebarItem(title: 'Lokal (pustostan)', icon: Icons.store, route: AppRouter.addListing),
-          _SidebarItem(title: 'Obiekt z najemcą', icon: Icons.business, route: AppRouter.addListing),
+          _SidebarItem(title: 'Grunt', icon: AppIcons.land, route: AppRouter.chceSprzedac),
+          _SidebarItem(title: 'Lokal (pustostan)', icon: Icons.store, route: AppRouter.chceSprzedac),
+          _SidebarItem(title: 'Obiekt z najemcą', icon: Icons.business, route: AppRouter.chceSprzedac),
         ],
       ),
       _SidebarItem(
@@ -508,20 +512,20 @@ class _SidebarState extends ConsumerState<Sidebar> {
         title: 'Dashboard globalny',
         icon: Icons.dashboard,
         children: [
-          _SidebarItem(title: 'Przegląd całego systemu', icon: Icons.public, route: AppRouter.dashboard),
-          _SidebarItem(title: 'Wszystkie województwa', icon: Icons.map, route: AppRouter.dashboard),
-          _SidebarItem(title: 'Metryki biznesowe', icon: Icons.analytics, route: AppRouter.dashboardStatistics),
-          _SidebarItem(title: 'Alerty systemowe', icon: Icons.warning, route: AppRouter.dashboardAdminLogs),
+          _SidebarItem(title: 'Przegląd całego systemu', icon: Icons.public, route: AppRouter.dashboardAdminPanel('overview')),
+          _SidebarItem(title: 'Wszystkie województwa', icon: Icons.map, route: AppRouter.dashboardAdminPanel('regions-map')),
+          _SidebarItem(title: 'Metryki biznesowe', icon: Icons.analytics, route: AppRouter.dashboardAdminPanel('metrics')),
+          _SidebarItem(title: 'Alerty systemowe', icon: Icons.warning, route: AppRouter.dashboardAdminPanel('alerts')),
         ],
       ),
       _SidebarItem(
         title: 'Zarządzanie regionami',
         icon: Icons.map,
         children: [
-          _SidebarItem(title: 'Lista województw', icon: Icons.list, route: AppRouter.dashboardAdminUsers),
-          _SidebarItem(title: 'Dodaj/edytuj województwo', icon: Icons.add_location, route: AppRouter.dashboardAdminUsers),
-          _SidebarItem(title: 'Przypisz Dyrektorów', icon: Icons.people, route: AppRouter.dashboardAdminUsers),
-          _SidebarItem(title: 'Statystyki regionalne', icon: Icons.bar_chart, route: AppRouter.dashboardStatistics),
+          _SidebarItem(title: 'Lista województw', icon: Icons.list, route: AppRouter.dashboardAdminPanel('regions-list')),
+          _SidebarItem(title: 'Dodaj/edytuj województwo', icon: Icons.add_location, route: AppRouter.dashboardAdminPanel('regions-edit')),
+          _SidebarItem(title: 'Przypisz Dyrektorów', icon: Icons.people, route: AppRouter.dashboardAdminPanel('regions-directors')),
+          _SidebarItem(title: 'Statystyki regionalne', icon: Icons.bar_chart, route: AppRouter.dashboardAdminPanel('regions-stats')),
         ],
       ),
       _SidebarItem(
@@ -529,73 +533,73 @@ class _SidebarState extends ConsumerState<Sidebar> {
         icon: Icons.people,
         children: [
           _SidebarItem(title: 'Wszyscy użytkownicy', icon: Icons.group, route: AppRouter.dashboardAdminUsers),
-          _SidebarItem(title: 'Według ról', icon: Icons.admin_panel_settings, route: AppRouter.dashboardAdminUsers),
-          _SidebarItem(title: 'Weryfikacje tożsamości', icon: Icons.verified_user, route: AppRouter.dashboardAdminUsers),
-          _SidebarItem(title: 'Logi aktywności', icon: Icons.history, route: AppRouter.dashboardAdminLogs),
-          _SidebarItem(title: 'Zarządzanie dostępami', icon: Icons.security, route: AppRouter.dashboardAdminUsers),
+          _SidebarItem(title: 'Według ról', icon: Icons.admin_panel_settings, route: AppRouter.dashboardAdminPanel('users-roles')),
+          _SidebarItem(title: 'Weryfikacje tożsamości', icon: Icons.verified_user, route: AppRouter.dashboardAdminPanel('users-verifications')),
+          _SidebarItem(title: 'Logi aktywności', icon: Icons.history, route: AppRouter.dashboardAdminPanel('users-activity')),
+          _SidebarItem(title: 'Zarządzanie dostępami', icon: Icons.security, route: AppRouter.dashboardAdminPanel('users-access')),
         ],
       ),
       _SidebarItem(
         title: 'Wszystkie nieruchomości',
         icon: AppIcons.office,
         children: [
-          _SidebarItem(title: 'Globalna lista', icon: Icons.apartment, route: AppRouter.dashboardListings),
-          _SidebarItem(title: 'Kontrola jakości', icon: Icons.fact_check, route: AppRouter.dashboardListings),
-          _SidebarItem(title: 'Moderacja', icon: Icons.gavel, route: AppRouter.dashboardListings),
-          _SidebarItem(title: 'Archiwizacja', icon: Icons.archive, route: AppRouter.dashboardListings),
+          _SidebarItem(title: 'Globalna lista', icon: Icons.apartment, route: AppRouter.dashboardAdminPanel('listings-global')),
+          _SidebarItem(title: 'Kontrola jakości', icon: Icons.fact_check, route: AppRouter.dashboardAdminPanel('listings-quality')),
+          _SidebarItem(title: 'Moderacja', icon: Icons.gavel, route: AppRouter.dashboardAdminPanel('listings-moderation')),
+          _SidebarItem(title: 'Archiwizacja', icon: Icons.archive, route: AppRouter.dashboardAdminPanel('listings-archive')),
         ],
       ),
       _SidebarItem(
         title: 'System VDR',
         icon: Icons.folder_special,
         children: [
-          _SidebarItem(title: 'Wszystkie dokumenty', icon: Icons.folder_open, route: AppRouter.dashboardDocuments),
-          _SidebarItem(title: 'Logi watermarków', icon: Icons.water_drop, route: AppRouter.dashboardAdminLogs),
-          _SidebarItem(title: 'Naruszenia', icon: Icons.warning, route: AppRouter.dashboardAdminLogs),
-          _SidebarItem(title: 'Zarządzanie uprawnieniami', icon: Icons.lock, route: AppRouter.dashboardAdminUsers),
+          _SidebarItem(title: 'Wszystkie dokumenty', icon: Icons.folder_open, route: AppRouter.dashboardAdminPanel('vdr-documents')),
+          _SidebarItem(title: 'Logi watermarków', icon: Icons.water_drop, route: AppRouter.dashboardAdminPanel('vdr-watermarks')),
+          _SidebarItem(title: 'Naruszenia', icon: Icons.warning, route: AppRouter.dashboardAdminPanel('vdr-violations')),
+          _SidebarItem(title: 'Zarządzanie uprawnieniami', icon: Icons.lock, route: AppRouter.dashboardAdminPanel('vdr-permissions')),
         ],
       ),
       _SidebarItem(
         title: 'Bezpieczeństwo',
         icon: Icons.security,
         children: [
-          _SidebarItem(title: 'Logi bezpieczeństwa', icon: Icons.history, route: AppRouter.dashboardAdminLogs),
-          _SidebarItem(title: 'NDA tracking', icon: Icons.description, route: AppRouter.dashboardAdminLogs),
-          _SidebarItem(title: 'IP blacklist', icon: Icons.block, route: AppRouter.dashboardAdminUsers),
-          _SidebarItem(title: 'Próby nieuprawnionego dostępu', icon: Icons.warning, route: AppRouter.dashboardAdminLogs),
+          _SidebarItem(title: 'Logi bezpieczeństwa', icon: Icons.history, route: AppRouter.dashboardAdminPanel('security-logs')),
+          _SidebarItem(title: 'NDA tracking', icon: Icons.description, route: AppRouter.dashboardAdminPanel('security-nda')),
+          _SidebarItem(title: 'IP blacklist', icon: Icons.block, route: AppRouter.dashboardAdminPanel('security-ip')),
+          _SidebarItem(title: 'Próby nieuprawnionego dostępu', icon: Icons.warning, route: AppRouter.dashboardAdminPanel('security-unauthorized')),
         ],
       ),
       _SidebarItem(
         title: 'Raporty i analityki',
         icon: Icons.analytics,
         children: [
-          _SidebarItem(title: 'Dashboard BI', icon: Icons.dashboard, route: AppRouter.dashboardStatistics),
-          _SidebarItem(title: 'Raporty finansowe (REIT)', icon: Icons.account_balance, route: AppRouter.dashboardStatistics),
-          _SidebarItem(title: 'Analiza konwersji', icon: Icons.trending_up, route: AppRouter.dashboardStatistics),
-          _SidebarItem(title: 'User journey analytics', icon: Icons.route, route: AppRouter.dashboardStatistics),
-          _SidebarItem(title: 'A/B testing', icon: Icons.science, route: AppRouter.dashboardStatistics),
+          _SidebarItem(title: 'Dashboard BI', icon: Icons.dashboard, route: AppRouter.dashboardAdminPanel('reports-bi')),
+          _SidebarItem(title: 'Raporty finansowe (REIT)', icon: Icons.account_balance, route: AppRouter.dashboardAdminPanel('reports-financial')),
+          _SidebarItem(title: 'Analiza konwersji', icon: Icons.trending_up, route: AppRouter.dashboardAdminPanel('reports-conversion')),
+          _SidebarItem(title: 'User journey analytics', icon: Icons.route, route: AppRouter.dashboardAdminPanel('reports-journey')),
+          _SidebarItem(title: 'A/B testing', icon: Icons.science, route: AppRouter.dashboardAdminPanel('reports-ab')),
         ],
       ),
       _SidebarItem(
         title: 'Konfiguracja systemu',
         icon: Icons.settings,
         children: [
-          _SidebarItem(title: 'Ustawienia globalne', icon: Icons.tune, route: AppRouter.dashboardSettings),
-          _SidebarItem(title: 'Zarządzanie rolami', icon: Icons.admin_panel_settings, route: AppRouter.dashboardAdminUsers),
-          _SidebarItem(title: 'Workflow i procesy', icon: Icons.account_tree, route: AppRouter.dashboardSettings),
-          _SidebarItem(title: 'Integracje (LinkedIn, NIP API)', icon: Icons.integration_instructions, route: AppRouter.dashboardSettings),
-          _SidebarItem(title: 'Szablony email/powiadomień', icon: Icons.email, route: AppRouter.dashboardSettings),
-          _SidebarItem(title: 'Parametry watermarkingu', icon: Icons.water_drop, route: AppRouter.dashboardSettings),
+          _SidebarItem(title: 'Ustawienia globalne', icon: Icons.tune, route: AppRouter.dashboardAdminPanel('config-global')),
+          _SidebarItem(title: 'Zarządzanie rolami', icon: Icons.admin_panel_settings, route: AppRouter.dashboardAdminPanel('config-roles')),
+          _SidebarItem(title: 'Workflow i procesy', icon: Icons.account_tree, route: AppRouter.dashboardAdminPanel('config-workflow')),
+          _SidebarItem(title: 'Integracje (LinkedIn, NIP API)', icon: Icons.integration_instructions, route: AppRouter.dashboardAdminPanel('config-integrations')),
+          _SidebarItem(title: 'Szablony email/powiadomień', icon: Icons.email, route: AppRouter.dashboardAdminPanel('config-templates')),
+          _SidebarItem(title: 'Parametry watermarkingu', icon: Icons.water_drop, route: AppRouter.dashboardAdminPanel('config-watermarking')),
         ],
       ),
       _SidebarItem(
         title: 'Narzędzia developerskie',
         icon: Icons.build,
         children: [
-          _SidebarItem(title: 'Logi systemowe', icon: Icons.terminal, route: AppRouter.dashboardAdminLogs),
-          _SidebarItem(title: 'Status API', icon: Icons.api, route: AppRouter.dashboardAdminLogs),
-          _SidebarItem(title: 'Backup & restore', icon: Icons.backup, route: AppRouter.dashboardAdminLogs),
-          _SidebarItem(title: 'Migracje bazy', icon: Icons.storage, route: AppRouter.dashboardAdminLogs),
+          _SidebarItem(title: 'Logi systemowe', icon: Icons.terminal, route: AppRouter.dashboardAdminPanel('dev-logs')),
+          _SidebarItem(title: 'Status API', icon: Icons.api, route: AppRouter.dashboardAdminPanel('dev-api')),
+          _SidebarItem(title: 'Backup & restore', icon: Icons.backup, route: AppRouter.dashboardAdminPanel('dev-backup')),
+          _SidebarItem(title: 'Migracje bazy', icon: Icons.storage, route: AppRouter.dashboardAdminPanel('dev-migrations')),
         ],
       ),
       _SidebarItem(
@@ -603,8 +607,8 @@ class _SidebarState extends ConsumerState<Sidebar> {
         icon: Icons.hourglass_empty,
         children: [
           _SidebarItem(title: 'Zgłoszenia do sprzedaży', icon: Icons.real_estate_agent, route: AppRouter.dashboardAdminSubmissions),
-          _SidebarItem(title: 'Workflow procesowania', icon: Icons.hub, route: AppRouter.dashboardAdminSubmissions),
-          _SidebarItem(title: 'Przypisanie do regionów', icon: Icons.map, route: AppRouter.dashboardAdminSubmissions),
+          _SidebarItem(title: 'Workflow procesowania', icon: Icons.hub, route: AppRouter.dashboardAdminPanel('submissions-workflow')),
+          _SidebarItem(title: 'Przypisanie do regionów', icon: Icons.map, route: AppRouter.dashboardAdminPanel('submissions-regions')),
         ],
       ),
       _SidebarItem(
@@ -645,13 +649,19 @@ class _SidebarState extends ConsumerState<Sidebar> {
     return false;
   }
 
+  String _itemKey(String? parentKey, String title) {
+    final base = parentKey != null ? '$parentKey.$title' : title;
+    final prefix = widget.keyPrefix;
+    return prefix != null ? '$prefix.$base' : base;
+  }
+
   Widget _buildItemWidget(
     BuildContext context,
     _SidebarItem item,
     String? parentKey,
   ) {
     if (item.hasChildren) {
-      final key = parentKey != null ? '$parentKey.${item.title}' : item.title;
+      final key = _itemKey(parentKey, item.title);
       final isExpanded = _expandedSections.contains(key) || _hasActiveChild(item);
       return ExpansionTile(
         key: ValueKey(key),
@@ -734,9 +744,13 @@ class _SidebarState extends ConsumerState<Sidebar> {
           final uri = item.queryParams != null && item.queryParams!.isNotEmpty
               ? Uri(path: route, queryParameters: item.queryParams)
               : Uri(path: route);
-          context.go(uri.toString());
+          // Najpierw zamknij drawer (jeśli otwarty), potem nawiguj – unikamy
+          // błędu „popped the last page” przy go_router (stos ma jedną trasę).
+          if (context.mounted && Scaffold.maybeOf(context)?.isDrawerOpen == true) {
+            Navigator.of(context).pop();
+          }
           if (context.mounted) {
-            Navigator.of(context).pop(); // Close drawer on mobile
+            context.go(uri.toString());
           }
         }
       },

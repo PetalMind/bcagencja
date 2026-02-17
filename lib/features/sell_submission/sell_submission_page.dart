@@ -7,13 +7,16 @@ import '../../widgets/navigation/app_bar_custom.dart';
 import '../../widgets/navigation/bottom_nav_bar.dart';
 import '../../widgets/navigation/mobile_menu.dart';
 import '../../widgets/common/custom_button.dart';
-import '../add_listing/widgets/progress_indicator.dart';
+import 'widgets/progress_indicator.dart';
 import 'listing_submission_model.dart';
-import 'steps/step1_what_where.dart';
-import 'steps/step2_contact.dart';
-import 'steps/step3_summary.dart';
+import 'steps/step1_property_type.dart';
+import 'steps/step2_location.dart';
+import 'steps/step3_basic_data.dart';
+import 'steps/step4_price.dart';
+import 'steps/step5_documentation.dart';
+import 'steps/step6_contact.dart';
 
-/// Lead magnet "Chcę sprzedać" – prosty, zachęcający proces zgłoszenia.
+/// Lead magnet "Chcę sprzedać" – 6-krokowy wizard.
 /// Zgłoszenia trafiają do Firestore `listing_submissions` (status: pending) – baza "Oczekiwanie" w panelu admina.
 class SellSubmissionPage extends StatefulWidget {
   const SellSubmissionPage({super.key});
@@ -23,13 +26,28 @@ class SellSubmissionPage extends StatefulWidget {
 }
 
 class _SellSubmissionPageState extends State<SellSubmissionPage> {
+  static const int _totalSteps = 6;
   int _currentStep = 0;
   final _formData = ListingSubmissionData();
   bool _isSubmitting = false;
   final _submissionService = ListingSubmissionService();
 
-  static const _stepLabels = ['Co i gdzie', 'Kontakt', 'Podsumowanie'];
-  static const _stepLabelsShort = ['Co i gdzie', 'Kontakt', 'Podsum.'];
+  static const _stepLabels = [
+    'Typ',
+    'Lokalizacja',
+    'Dane',
+    'Cena',
+    'Dokumenty',
+    'Kontakt',
+  ];
+  static const _stepLabelsShort = [
+    'Typ',
+    'Lokalizacja',
+    'Dane',
+    'Cena',
+    'Dok.',
+    'Kontakt',
+  ];
 
   bool _isCurrentStepValid() {
     switch (_currentStep) {
@@ -38,19 +56,23 @@ class _SellSubmissionPageState extends State<SellSubmissionPage> {
       case 1:
         return _formData.isStep2Valid;
       case 2:
-        return true;
+        return _formData.isStep3Valid;
+      case 3:
+        return _formData.isStep4Valid;
+      case 4:
+        return _formData.isStep5Valid;
+      case 5:
+        return _formData.isStep6Valid;
       default:
         return true;
     }
   }
 
   bool _hasUnsavedData() {
-    return _formData.assetType != null ||
+    return _formData.propertyType != null ||
         (_formData.city != null && _formData.city!.trim().isNotEmpty) ||
-        (_formData.contactName != null &&
-            _formData.contactName!.trim().isNotEmpty) ||
-        (_formData.contactEmail != null &&
-            _formData.contactEmail!.trim().isNotEmpty);
+        (_formData.contactName != null && _formData.contactName!.trim().isNotEmpty) ||
+        (_formData.contactEmail != null && _formData.contactEmail!.trim().isNotEmpty);
   }
 
   void _showExitConfirmation(BuildContext context) {
@@ -93,8 +115,15 @@ class _SellSubmissionPageState extends State<SellSubmissionPage> {
     setState(() => _currentStep--);
   }
 
+  void _skipStep5() {
+    setState(() => _currentStep++);
+  }
+
   Future<void> _submit() async {
-    if (!_formData.isStep1Valid || !_formData.isStep2Valid) {
+    if (!_formData.isStep1Valid ||
+        !_formData.isStep2Valid ||
+        !_formData.isStep3Valid ||
+        !_formData.isStep6Valid) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Wypełnij wszystkie wymagane pola')),
       );
@@ -102,9 +131,16 @@ class _SellSubmissionPageState extends State<SellSubmissionPage> {
     }
     setState(() => _isSubmitting = true);
     try {
-      await _submissionService.submit(_formData);
+      if (_formData.estimatedValueMin == null && _formData.estimatedRangeFromRent != null) {
+        _formData.estimatedValueMin = _formData.estimatedRangeFromRent!.$1;
+        _formData.estimatedValueMax = _formData.estimatedRangeFromRent!.$2;
+      }
+      final id = await _submissionService.submit(_formData);
       if (!mounted) return;
-      context.go('${AppRouter.chceSprzedac}/sukces');
+      context.go(
+        '${AppRouter.chceSprzedac}/sukces',
+        extra: {'submissionId': id, 'email': _formData.contactEmail},
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -122,7 +158,8 @@ class _SellSubmissionPageState extends State<SellSubmissionPage> {
   Widget build(BuildContext context) {
     final isMobile =
         MediaQuery.sizeOf(context).width < AppSpacing.mobileBreakpoint;
-    final isLastStep = _currentStep >= _stepLabels.length - 1;
+    final isLastStep = _currentStep >= _totalSteps - 1;
+    final isStep5 = _currentStep == 4;
 
     return PopScope(
       canPop: !_hasUnsavedData(),
@@ -136,7 +173,7 @@ class _SellSubmissionPageState extends State<SellSubmissionPage> {
           children: [
             StepProgressIndicator(
               currentStep: _currentStep,
-              totalSteps: _stepLabels.length,
+              totalSteps: _totalSteps,
               stepLabels: _stepLabels,
               stepLabelsShort: _stepLabelsShort,
               onStepTapped: (index) {
@@ -161,8 +198,19 @@ class _SellSubmissionPageState extends State<SellSubmissionPage> {
                   if (_currentStep > 0) ...[
                     Expanded(
                       child: CustomButton(
-                        label: 'Wstecz',
+                        label: 'Wróć',
                         onPressed: _isSubmitting ? null : _goPrev,
+                        variant: ButtonVariant.outlined,
+                        fullWidth: true,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                  ],
+                  if (isStep5) ...[
+                    Expanded(
+                      child: CustomButton(
+                        label: 'Pomiń ten krok',
+                        onPressed: _isSubmitting ? null : _skipStep5,
                         variant: ButtonVariant.outlined,
                         fullWidth: true,
                       ),
@@ -193,17 +241,37 @@ class _SellSubmissionPageState extends State<SellSubmissionPage> {
   Widget _buildCurrentStep() {
     switch (_currentStep) {
       case 0:
-        return Step1WhatWhere(
+        return Step1PropertyType(
           formData: _formData,
           onDataChanged: (_) => setState(() {}),
+          onTypeSelected: () => _goNext(),
         );
       case 1:
-        return Step2Contact(
+        return Step2Location(
+          formData: _formData,
+          onDataChanged: (_) => setState(() {}),
+          onAddressSelected: () => _goNext(),
+        );
+      case 2:
+        return Step3BasicData(
           formData: _formData,
           onDataChanged: (_) => setState(() {}),
         );
-      case 2:
-        return Step3Summary(formData: _formData);
+      case 3:
+        return Step4Price(
+          formData: _formData,
+          onDataChanged: (_) => setState(() {}),
+        );
+      case 4:
+        return Step5Documentation(
+          formData: _formData,
+          onDataChanged: (_) => setState(() {}),
+        );
+      case 5:
+        return Step6Contact(
+          formData: _formData,
+          onDataChanged: (_) => setState(() {}),
+        );
       default:
         return const Center(child: Text('Krok nieznany'));
     }

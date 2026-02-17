@@ -126,7 +126,7 @@ class MobileMenu extends ConsumerWidget {
                         size: ButtonSize.medium,
                         fullWidth: true,
                         onPressed: () {
-                          context.go(AppRouter.addListing);
+                          context.go(AppRouter.chceSprzedac);
                           Navigator.of(context).pop();
                         },
                       ),

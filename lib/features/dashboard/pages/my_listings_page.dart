@@ -35,7 +35,7 @@ class MyListingsPage extends StatelessWidget {
               ),
               if (!isMobile)
                 FilledButton.icon(
-                  onPressed: () => context.push(AppRouter.addListing),
+                  onPressed: () => context.push(AppRouter.chceSprzedac),
                   icon: const Icon(AppIcons.add, size: 20),
                   label: const Text('Dodaj ogłoszenie'),
                   style: FilledButton.styleFrom(
@@ -50,7 +50,7 @@ class MyListingsPage extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                onPressed: () => context.push(AppRouter.addListing),
+                onPressed: () => context.push(AppRouter.chceSprzedac),
                 icon: const Icon(AppIcons.add, size: 20),
                 label: const Text('Dodaj ogłoszenie'),
                 style: FilledButton.styleFrom(
@@ -68,7 +68,7 @@ class MyListingsPage extends StatelessWidget {
               subtitle: 'Dodaj pierwsze ogłoszenie, aby zacząć.',
               actionLabel: 'Dodaj ogłoszenie',
               icon: AppIcons.office,
-              onAction: () => context.push(AppRouter.addListing),
+              onAction: () => context.push(AppRouter.chceSprzedac),
             )
           else
             LayoutBuilder(

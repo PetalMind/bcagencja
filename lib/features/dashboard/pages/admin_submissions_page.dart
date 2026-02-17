@@ -108,7 +108,7 @@ class _AdminSubmissionsPageState extends ConsumerState<AdminSubmissionsPage> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: list.length,
-      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
+      separatorBuilder: (context, index) => const SizedBox(height: AppSpacing.md),
       itemBuilder: (context, index) => _SubmissionCard(
         record: list[index],
         onAssign: () => _showAssignDialog(context, list[index]),
@@ -123,9 +123,11 @@ class _AdminSubmissionsPageState extends ConsumerState<AdminSubmissionsPage> {
       scrollDirection: Axis.horizontal,
       child: DataTable(
         columns: const [
+          DataColumn(label: Text('Nr ref.')),
           DataColumn(label: Text('Data')),
           DataColumn(label: Text('Typ')),
           DataColumn(label: Text('Lokalizacja')),
+          DataColumn(label: Text('Pow. / Cena')),
           DataColumn(label: Text('Kontakt')),
           DataColumn(label: Text('Status')),
           DataColumn(label: Text('Akcje')),
@@ -136,13 +138,20 @@ class _AdminSubmissionsPageState extends ConsumerState<AdminSubmissionsPage> {
   }
 
   DataRow _buildTableRow(ListingSubmissionRecord r) {
+    final loc = '${r.city ?? ''}${r.voivodeship != null ? ', ${r.voivodeship}' : ''}'.trim();
+    final areaPrice = [
+      if (r.area != null && r.area! > 0) '${r.area!.toStringAsFixed(0)} m²',
+      if (r.expectedPrice != null && r.expectedPrice! > 0) '${_formatPrice(r.expectedPrice!)}',
+    ].join(' / ');
     return DataRow(
       cells: [
+        DataCell(Text(r.referenceNumber, style: AppTextStyles.labelSmall)),
         DataCell(Text(r.createdAt != null
-            ? '${r.createdAt!.day}.${r.createdAt!.month}.${r.createdAt!.year}'
+            ? '${r.createdAt!.day.toString().padLeft(2, '0')}.${r.createdAt!.month.toString().padLeft(2, '0')}.${r.createdAt!.year}'
             : '—')),
-        DataCell(Text(r.assetType == 'land' ? 'Grunt' : r.assetType ?? '—')),
-        DataCell(Text('${r.city ?? ''} ${r.voivodeship ?? ''}'.trim().isEmpty ? '—' : '${r.city ?? ''}, ${r.voivodeship ?? ''}')),
+        DataCell(Text(r.typeShortLabel)),
+        DataCell(Text(loc.isEmpty ? '—' : loc)),
+        DataCell(Text(areaPrice.isEmpty ? '—' : areaPrice)),
         DataCell(Text('${r.contactName ?? ''} (${r.contactEmail ?? ''})')),
         DataCell(
           Chip(
@@ -170,6 +179,12 @@ class _AdminSubmissionsPageState extends ConsumerState<AdminSubmissionsPage> {
         )),
       ],
     );
+  }
+
+  String _formatPrice(double v) {
+    if (v >= 1e6) return '${(v / 1e6).toStringAsFixed(1)}M zł';
+    if (v >= 1e3) return '${(v / 1e3).toStringAsFixed(0)} tys. zł';
+    return '${v.toStringAsFixed(0)} zł';
   }
 
   Color _statusColor(String status) {
@@ -283,7 +298,8 @@ class _SubmissionCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: AppSpacing.xs),
-            Text('${record.assetType == 'land' ? 'Grunt' : 'Nieruchomość'} – ${record.city ?? ''}, ${record.voivodeship ?? ''}'),
+            Text(record.referenceNumber, style: AppTextStyles.labelSmall.copyWith(color: AppColors.textSecondary)),
+            Text('${record.typeShortLabel} – ${record.city ?? ''}${record.voivodeship != null ? ', ${record.voivodeship}' : ''}'),
             if (record.contactEmail != null) Text(record.contactEmail!),
             if (record.contactPhone != null) Text(record.contactPhone!),
             const SizedBox(height: AppSpacing.sm),

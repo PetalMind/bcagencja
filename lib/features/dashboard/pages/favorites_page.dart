@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_colors.dart';
@@ -11,9 +12,11 @@ import '../../../core/state/providers/favorites_provider.dart';
 import '../../../core/state/providers/smart_favorites_provider.dart';
 import '../../../core/router/app_router.dart';
 import '../../../widgets/common/compare_offers_modal.dart';
+import '../../../core/services/saved_offers_export_service.dart';
 import '../widgets/dashboard_scaffold.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/saved_offer_card.dart';
+import '../widgets/slidable_saved_offer_card.dart';
 import '../widgets/saved_offers_filters_bar.dart';
 import '../widgets/saved_offers_table.dart';
 import '../widgets/saved_offers_sidebar.dart';
@@ -135,7 +138,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                         if (list.length >= 2) showCompareOffersModal(context: context, properties: list);
                       }
                     : null,
-                onExportTap: () => _showExportOptions(context),
+                onExportTap: () => _showExportOptions(context, ref, propertiesWithEntries),
               ),
               const SizedBox(height: AppSpacing.lg),
               if (filteredIds.isEmpty)
@@ -229,7 +232,20 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
     );
   }
 
-  void _showExportOptions(BuildContext context) {
+  void _showExportOptions(
+    BuildContext context,
+    WidgetRef ref,
+    List<({Property property, SavedOfferEntry entry})> propertiesWithEntries,
+  ) {
+    if (propertiesWithEntries.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Brak ofert do eksportu'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     showModalBottomSheet<void>(
       context: context,
       builder: (ctx) => SafeArea(
@@ -251,31 +267,48 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
               ListTile(
                 leading: const Icon(Icons.picture_as_pdf),
                 title: const Text('PDF (prezentacja)'),
-                onTap: () {
+                onTap: () async {
                   Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Eksport PDF – wkrótce'), behavior: SnackBarBehavior.floating),
-                  );
+                  await SavedOffersExportService.sharePdf(propertiesWithEntries);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Eksport PDF – udostępniono'), behavior: SnackBarBehavior.floating),
+                    );
+                  }
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.table_chart),
-                title: const Text('Excel (tabela danych)'),
-                onTap: () {
+                title: const Text('Excel / CSV (tabela danych)'),
+                onTap: () async {
                   Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Eksport Excel – wkrótce'), behavior: SnackBarBehavior.floating),
-                  );
+                  await SavedOffersExportService.shareCsv(propertiesWithEntries, filename: 'zapisane_oferty.csv');
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Eksport CSV – udostępniono'), behavior: SnackBarBehavior.floating),
+                    );
+                  }
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.description),
-                title: const Text('CSV (do analizy)'),
-                onTap: () {
+                leading: const Icon(Icons.email_outlined),
+                title: const Text('Wyślij raport emailem'),
+                onTap: () async {
                   Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Eksport CSV – wkrótce'), behavior: SnackBarBehavior.floating),
-                  );
+                  final bodyText = 'Załączam listę zapisanych ofert (${propertiesWithEntries.length} pozycji).\n\n'
+                      'Skorzystaj z eksportu CSV/PDF w aplikacji, aby otrzymać pełne dane.';
+                  final body = Uri.encodeComponent(bodyText.length > 500 ? '${bodyText.substring(0, 500)}...' : bodyText);
+                  final subject = Uri.encodeComponent('Zapisane oferty - BC Agencja');
+                  final mailto = Uri.parse('mailto:?subject=$subject&body=$body');
+                  try {
+                    await launchUrl(mailto);
+                  } catch (_) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Nie można otworzyć klienta e-mail'), behavior: SnackBarBehavior.floating),
+                      );
+                    }
+                  }
                 },
               ),
               const SizedBox(height: AppSpacing.md),
@@ -299,6 +332,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   ) {
     // Grupowanie po kolekcji: jeśli wybrana konkretna kolekcja, nie grupuj
     if (_selectedCollectionId != null) {
+      final useSlidable = isMobile;
       return _view == SavedOffersView.list
           ? ListView.builder(
               shrinkWrap: true,
@@ -306,43 +340,78 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
               itemCount: propertiesWithEntries.length,
               itemBuilder: (context, i) {
                 final item = propertiesWithEntries[i];
+                final card = useSlidable
+                    ? SlidableSavedOfferCard(
+                        property: item.property,
+                        entry: item.entry,
+                        compact: true,
+                        onCompare: () {
+                          setState(() {
+                            if (_selectedForCompare.contains(item.property.id)) {
+                              _selectedForCompare = Set.from(_selectedForCompare)..remove(item.property.id);
+                            } else if (_selectedForCompare.length < 5) {
+                              _selectedForCompare = Set.from(_selectedForCompare)..add(item.property.id);
+                            }
+                          });
+                        },
+                        onRemove: () => setState(() {}),
+                      )
+                    : SavedOfferCard(
+                        property: item.property,
+                        entry: item.entry,
+                        compact: true,
+                        onCompare: () {
+                          setState(() {
+                            if (_selectedForCompare.contains(item.property.id)) {
+                              _selectedForCompare = Set.from(_selectedForCompare)..remove(item.property.id);
+                            } else if (_selectedForCompare.length < 5) {
+                              _selectedForCompare = Set.from(_selectedForCompare)..add(item.property.id);
+                            }
+                          });
+                        },
+                      );
                 return Padding(
                   padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                  child: SavedOfferCard(
-                    property: item.property,
-                    entry: item.entry,
-                    compact: true,
-                    onCompare: () {
-                      setState(() {
-                        if (_selectedForCompare.contains(item.property.id)) {
-                          _selectedForCompare = Set.from(_selectedForCompare)..remove(item.property.id);
-                        } else if (_selectedForCompare.length < 5) {
-                          _selectedForCompare = Set.from(_selectedForCompare)..add(item.property.id);
-                        }
-                      });
-                    },
-                  ),
+                  child: card,
                 );
               },
             )
           : Column(
               children: propertiesWithEntries
-                  .map((item) => Padding(
-                        padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-                        child: SavedOfferCard(
-                          property: item.property,
-                          entry: item.entry,
-                          onCompare: () {
-                            setState(() {
-                              if (_selectedForCompare.contains(item.property.id)) {
-                                _selectedForCompare = Set.from(_selectedForCompare)..remove(item.property.id);
-                              } else if (_selectedForCompare.length < 5) {
-                                _selectedForCompare = Set.from(_selectedForCompare)..add(item.property.id);
-                              }
-                            });
-                          },
-                        ),
-                      ))
+                  .map((item) {
+                    final card = useSlidable
+                        ? SlidableSavedOfferCard(
+                            property: item.property,
+                            entry: item.entry,
+                            onCompare: () {
+                              setState(() {
+                                if (_selectedForCompare.contains(item.property.id)) {
+                                  _selectedForCompare = Set.from(_selectedForCompare)..remove(item.property.id);
+                                } else if (_selectedForCompare.length < 5) {
+                                  _selectedForCompare = Set.from(_selectedForCompare)..add(item.property.id);
+                                }
+                              });
+                            },
+                            onRemove: () => setState(() {}),
+                          )
+                        : SavedOfferCard(
+                            property: item.property,
+                            entry: item.entry,
+                            onCompare: () {
+                              setState(() {
+                                if (_selectedForCompare.contains(item.property.id)) {
+                                  _selectedForCompare = Set.from(_selectedForCompare)..remove(item.property.id);
+                                } else if (_selectedForCompare.length < 5) {
+                                  _selectedForCompare = Set.from(_selectedForCompare)..add(item.property.id);
+                                }
+                              });
+                            },
+                          );
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+                      child: card,
+                    );
+                  })
                   .toList(),
             );
     }
@@ -400,10 +469,11 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
               ),
             ),
             if (isExpanded) ...[
-              ...items.map((item) => Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                    child: _view == SavedOffersView.list
-                        ? SavedOfferCard(
+              ...items.map((item) {
+                final useSlidable = isMobile;
+                final card = _view == SavedOffersView.list
+                    ? (useSlidable
+                        ? SlidableSavedOfferCard(
                             property: item.property,
                             entry: item.entry,
                             compact: true,
@@ -416,6 +486,36 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                                 }
                               });
                             },
+                            onRemove: () => setState(() {}),
+                          )
+                        : SavedOfferCard(
+                            property: item.property,
+                            entry: item.entry,
+                            compact: true,
+                            onCompare: () {
+                              setState(() {
+                                if (_selectedForCompare.contains(item.property.id)) {
+                                  _selectedForCompare = Set.from(_selectedForCompare)..remove(item.property.id);
+                                } else if (_selectedForCompare.length < 5) {
+                                  _selectedForCompare = Set.from(_selectedForCompare)..add(item.property.id);
+                                }
+                              });
+                            },
+                          ))
+                    : (useSlidable
+                        ? SlidableSavedOfferCard(
+                            property: item.property,
+                            entry: item.entry,
+                            onCompare: () {
+                              setState(() {
+                                if (_selectedForCompare.contains(item.property.id)) {
+                                  _selectedForCompare = Set.from(_selectedForCompare)..remove(item.property.id);
+                                } else if (_selectedForCompare.length < 5) {
+                                  _selectedForCompare = Set.from(_selectedForCompare)..add(item.property.id);
+                                }
+                              });
+                            },
+                            onRemove: () => setState(() {}),
                           )
                         : SavedOfferCard(
                             property: item.property,
@@ -429,8 +529,12 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                                 }
                               });
                             },
-                          ),
-                  )),
+                          ));
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                  child: card,
+                );
+              }),
               const SizedBox(height: AppSpacing.lg),
             ],
           ],

@@ -77,8 +77,21 @@ class ListingSubmissionRecord {
   final String id;
   final String status;
   final String? assetType;
+  final String? propertyType;
   final String? city;
   final String? voivodeship;
+  final String? formattedAddress;
+  final double? area;
+  final String? tenantType;
+  final String? tenantName;
+  final DateTime? leaseUntil;
+  final double? monthlyRent;
+  final String? mpzp;
+  final List<String> utilities;
+  final double? estimatedValueMin;
+  final double? estimatedValueMax;
+  final double? expectedPrice;
+  final String? priceFlexibility;
   final String? description;
   final String? contactName;
   final String? contactEmail;
@@ -93,8 +106,21 @@ class ListingSubmissionRecord {
     required this.id,
     required this.status,
     this.assetType,
+    this.propertyType,
     this.city,
     this.voivodeship,
+    this.formattedAddress,
+    this.area,
+    this.tenantType,
+    this.tenantName,
+    this.leaseUntil,
+    this.monthlyRent,
+    this.mpzp,
+    this.utilities = const [],
+    this.estimatedValueMin,
+    this.estimatedValueMax,
+    this.expectedPrice,
+    this.priceFlexibility,
     this.description,
     this.contactName,
     this.contactEmail,
@@ -109,12 +135,29 @@ class ListingSubmissionRecord {
   static ListingSubmissionRecord fromFirestore(String id, Map<String, dynamic> data) {
     final createdAt = data['createdAt'];
     final rejectedAt = data['rejectedAt'];
+    final leaseUntil = data['leaseUntil'];
+    final utilities = data['utilities'];
     return ListingSubmissionRecord(
       id: id,
       status: data['status'] as String? ?? 'pending',
       assetType: data['assetType'] as String?,
+      propertyType: data['propertyType'] as String?,
       city: data['city'] as String?,
       voivodeship: data['voivodeship'] as String?,
+      formattedAddress: data['formattedAddress'] as String?,
+      area: (data['area'] as num?)?.toDouble(),
+      tenantType: data['tenantType'] as String?,
+      tenantName: data['tenantName'] as String?,
+      leaseUntil: leaseUntil is Timestamp ? leaseUntil.toDate() : null,
+      monthlyRent: (data['monthlyRent'] as num?)?.toDouble(),
+      mpzp: data['mpzp'] as String?,
+      utilities: utilities is List<dynamic>
+          ? utilities.map((e) => e.toString()).toList()
+          : const [],
+      estimatedValueMin: (data['estimatedValueMin'] as num?)?.toDouble(),
+      estimatedValueMax: (data['estimatedValueMax'] as num?)?.toDouble(),
+      expectedPrice: (data['expectedPrice'] as num?)?.toDouble(),
+      priceFlexibility: data['priceFlexibility'] as String?,
       description: data['description'] as String?,
       contactName: data['contactName'] as String?,
       contactEmail: data['contactEmail'] as String?,
@@ -136,4 +179,38 @@ class ListingSubmissionRecord {
       default: return status;
     }
   }
+
+  String get typeDisplayLabel {
+    final t = propertyType ?? assetType;
+    if (t == null) return '—';
+    switch (t) {
+      case 'retail': return 'Lokal handlowy';
+      case 'office': return 'Budynek biurowy';
+      case 'land': return 'Grunt';
+      case 'warehouse': return 'Hala magazynowa';
+      case 'under_construction': return 'Obiekt w budowie';
+      case 'unsure': return 'Nie jestem pewien';
+      case 'property': return 'Nieruchomość';
+      default: return t;
+    }
+  }
+
+  /// Krótka etykieta do tabeli (np. "Lokal + Najemca", "Grunt").
+  String get typeShortLabel {
+    final t = propertyType ?? assetType;
+    if (t == null) return '—';
+    if (t == 'land') return 'Grunt';
+    if (tenantType != null && tenantType!.isNotEmpty) return 'Lokal + Najemca';
+    switch (t) {
+      case 'retail': return 'Lokal';
+      case 'office': return 'Biuro';
+      case 'warehouse': return 'Hala';
+      case 'under_construction': return 'W budowie';
+      case 'unsure': return '?';
+      case 'property': return 'Nieruchomość';
+      default: return typeDisplayLabel;
+    }
+  }
+
+  String get referenceNumber => 'BC-2026-$id';
 }

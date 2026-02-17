@@ -10,8 +10,10 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_icons.dart';
 import '../../core/state/models/property_model.dart';
+import '../../core/state/providers/favorites_provider.dart';
 import '../../core/router/app_router.dart';
 import 'widgets/property_gallery.dart';
+import 'widgets/activity_timeline.dart';
 import 'widgets/property_info_panel.dart';
 import 'widgets/contact_form.dart';
 import 'widgets/property_description.dart';
@@ -310,6 +312,12 @@ class PropertyDetailPage extends ConsumerWidget {
                   else
                     _buildVdrCta(context, propertyId, isMobile),
                   const SizedBox(height: AppSpacing.xxl),
+                  
+                  // Historia aktywności (gdy oferta zapisana)
+                  if (ref.watch(favoritesProvider).contains(property.id)) ...[
+                    ActivityTimeline(property: property, isMobile: isMobile),
+                    const SizedBox(height: AppSpacing.xxl),
+                  ],
                   
                   // Similar listings
                   SimilarListings(propertyId: property.id),
