@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/auth/app_user.dart';
 import '../../../core/state/providers/auth_provider.dart';
+import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_colors.dart';
@@ -128,6 +129,7 @@ class _Step6ContactState extends ConsumerState<Step6Contact> {
             decoration: InputDecoration(
               labelText: 'Imię i nazwisko / Nazwa firmy *',
               hintText: 'np. Jan Kowalski',
+              prefixIcon: const Icon(AppIcons.profile),
               border: const OutlineInputBorder(),
               filled: true,
               fillColor: AppColors.white,
@@ -153,6 +155,7 @@ class _Step6ContactState extends ConsumerState<Step6Contact> {
             decoration: InputDecoration(
               labelText: 'Email *',
               hintText: 'np. jan@example.com',
+              prefixIcon: const Icon(AppIcons.email),
               border: const OutlineInputBorder(),
               filled: true,
               fillColor: AppColors.white,
@@ -173,6 +176,7 @@ class _Step6ContactState extends ConsumerState<Step6Contact> {
               labelText: 'Telefon *',
               hintText: '+48 123 456 789',
               helperText: 'Tylko cyfry i znaki + - ( )',
+              prefixIcon: const Icon(AppIcons.phone),
               border: const OutlineInputBorder(),
               filled: true,
               fillColor: AppColors.white,
@@ -223,6 +227,7 @@ class _Step6ContactState extends ConsumerState<Step6Contact> {
             decoration: InputDecoration(
               labelText: 'Kiedy możemy zadzwonić? (opcjonalnie)',
               hintText: 'np. 9–17, jak najszybciej',
+              prefixIcon: const Icon(AppIcons.time),
               border: const OutlineInputBorder(),
               filled: true,
               fillColor: AppColors.white,

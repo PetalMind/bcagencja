@@ -27,8 +27,16 @@ class Property {
   final List<String> images;
   final String? mainImage;
   final List<String> features; // cechy komercyjne
+  /// Przeznaczenie lokalu: gastronomiczny, biurowy, handlowy, usługowy (multi-select)
+  final List<String> designation;
+  /// Informacje dodatkowe – klucze z AdditionalInfoOptions (multi-select)
+  final List<String> additionalInfo;
   final int? yearBuilt;
+  final int? yearModernized; // rok modernizacji
   final String? condition; // 'new', 'excellent', 'good', 'requires_renovation'
+  final double? electricalPower; // moc przyłącza w kW
+  final String? heatingType; // typ ogrzewania
+  final bool? expandable; // możliwość rozbudowy
   final String? buildingClass; // 'A+', 'A', 'B+', 'B', 'C'
   final bool hasLoadingDock; // rampa załadunkowa
   final bool hasParking;
@@ -42,6 +50,11 @@ class Property {
   final double? currentRent; // obecny czynsz (jeśli wynajęte)
   final String? tenant; // obecny najemca
   final DateTime? leaseUntil; // umowa najmu do
+  /// Dla teaserów: zakres wartości inwestycji (bez dokładnej ceny).
+  final double? estimatedValueMin;
+  final double? estimatedValueMax;
+  /// Województwo – do filtrów i makro-lokalizacji na teaserach.
+  final String? voivodeship;
   final bool verified;
   final bool promoted;
   final String ownerId;
@@ -75,8 +88,14 @@ class Property {
     required this.images,
     this.mainImage,
     this.features = const [],
+    this.designation = const [],
+    this.additionalInfo = const [],
     this.yearBuilt,
+    this.yearModernized,
     this.condition,
+    this.electricalPower,
+    this.heatingType,
+    this.expandable,
     this.buildingClass,
     this.hasLoadingDock = false,
     this.hasParking = false,
@@ -90,6 +109,9 @@ class Property {
     this.currentRent,
     this.tenant,
     this.leaseUntil,
+    this.estimatedValueMin,
+    this.estimatedValueMax,
+    this.voivodeship,
     this.verified = false,
     this.promoted = false,
     required this.ownerId,
@@ -110,6 +132,44 @@ class Property {
       return '${(price / 1000).toStringAsFixed(0)} tys. zł';
     }
     return '$price zł';
+  }
+
+  /// Teaser (Poziom 1): nie pokazujemy dokładnej ceny. Zwraca yield, zakres wartości lub cena/m².
+  /// Zwraca null gdy brak danych do teaserowej prezentacji.
+  String? get teaserPriceDisplay {
+    if (roi != null && roi! > 0 && roi! < 100) {
+      return 'Yield: ${roi!.toStringAsFixed(1).replaceAll('.', ',')}%';
+    }
+    if (estimatedValueMin != null && estimatedValueMax != null &&
+        estimatedValueMin! > 0 && estimatedValueMax! >= estimatedValueMin!) {
+      final formatted = _formatTeaserValueRange(estimatedValueMin!, estimatedValueMax!);
+      return 'Wartość inwestycji: $formatted';
+    }
+    if (pricePerSqm != null && pricePerSqm! > 0 && area > 0) {
+      final p = pricePerSqm!.round();
+      return '$p zł/m² GLA';
+    }
+    return null;
+  }
+
+  static String _formatTeaserValueRange(double minV, double maxV) {
+    if (maxV >= 1000000) {
+      return '${(minV / 1000000).toStringAsFixed(0)}–${(maxV / 1000000).toStringAsFixed(0)} mln zł';
+    }
+    if (maxV >= 1000) {
+      return '${(minV / 1000).toStringAsFixed(0)}–${(maxV / 1000).toStringAsFixed(0)} tys. zł';
+    }
+    return '${minV.toStringAsFixed(0)}–${maxV.toStringAsFixed(0)} zł';
+  }
+
+  /// Lokalizacja makro dla teasera (województwo lub miasto).
+  String get teaserLocationDisplay {
+    if (voivodeship != null && voivodeship!.trim().isNotEmpty) {
+      final v = voivodeship!.trim();
+      return v.toLowerCase().startsWith('woj.') ? v : 'woj. $v';
+    }
+    if (city.isNotEmpty) return city;
+    return location;
   }
   
   String get propertyTypeLabel {
@@ -206,8 +266,14 @@ class Property {
         images: images,
         mainImage: data['mainImage'] as String? ?? (images.isNotEmpty ? images.first : null),
         features: _toStringList(data['features']),
+        designation: _toStringList(data['designation']),
+        additionalInfo: _toStringList(data['additionalInfo']),
         yearBuilt: _toInt(data['yearBuilt']),
+        yearModernized: _toInt(data['yearModernized']),
         condition: data['condition'] as String?,
+        electricalPower: _toDouble(data['electricalPower']),
+        heatingType: data['heatingType'] as String?,
+        expandable: data.containsKey('expandable') ? (data['expandable'] == true) : null,
         buildingClass: data['buildingClass'] as String?,
         hasLoadingDock: data['hasLoadingDock'] == true,
         hasParking: data['hasParking'] == true,
@@ -221,6 +287,9 @@ class Property {
         currentRent: _toDouble(data['currentRent']),
         tenant: data['tenant'] as String?,
         leaseUntil: _toDateTime(data['leaseUntil']),
+        estimatedValueMin: _toDouble(data['estimatedValueMin']),
+        estimatedValueMax: _toDouble(data['estimatedValueMax']),
+        voivodeship: data['voivodeship'] as String?,
         verified: data['verified'] == true,
         promoted: data['promoted'] == true,
         ownerId: ownerId.isNotEmpty ? ownerId : 'unknown',
@@ -285,8 +354,14 @@ class Property {
       'images': images,
       'mainImage': mainImage ?? (images.isNotEmpty ? images.first : null),
       'features': features,
+      'designation': designation.isEmpty ? null : designation,
+      'additionalInfo': additionalInfo.isEmpty ? null : additionalInfo,
       'yearBuilt': yearBuilt,
+      'yearModernized': yearModernized,
       'condition': condition,
+      'electricalPower': electricalPower,
+      'heatingType': heatingType,
+      'expandable': expandable,
       'buildingClass': buildingClass,
       'hasLoadingDock': hasLoadingDock,
       'hasParking': hasParking,
@@ -441,7 +516,11 @@ class Property {
       mainImage: images[0],
       features: featuresByType[propertyType] ?? [],
       yearBuilt: 2010 + (index % 13),
+      yearModernized: index % 3 == 0 ? 2020 + (index % 4) : null,
       condition: conditions[index % conditions.length],
+      electricalPower: index % 2 == 0 ? (125.0 + (index % 5) * 100) : null,
+      heatingType: index % 2 == 0 ? 'Gazowe' : (index % 3 == 0 ? 'Pompa ciepła' : null),
+      expandable: index % 4 == 0 ? true : null,
       buildingClass: propertyType == 'office' || propertyType == 'retail' 
           ? buildingClasses[index % buildingClasses.length] 
           : null,

@@ -7,6 +7,7 @@ import '../../../core/services/admin_service.dart';
 import '../../../core/router/app_router.dart';
 import '../widgets/dashboard_scaffold.dart';
 import '../widgets/empty_state.dart';
+import '../../../widgets/common/app_data_grid.dart';
 
 final _adminServiceProvider = Provider<AdminService>((ref) => AdminService());
 
@@ -165,36 +166,37 @@ class _AdminUsersVerificationsPageState
   }
 
   Widget _buildDesktopTable(List<AdminUserRecord> list) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        columns: const [
-          DataColumn(label: Text('Email')),
-          DataColumn(label: Text('Nazwa')),
-          DataColumn(label: Text('Rola')),
-          DataColumn(label: Text('NDA')),
-          DataColumn(label: Text('Level 2')),
-          DataColumn(label: Text('VDR')),
-        ],
-        rows: list
-            .map(
-              (r) => DataRow(
-                cells: [
-                  DataCell(Text(r.email ?? '—')),
-                  DataCell(Text(r.displayName ?? '—')),
-                  DataCell(Chip(
-                    label: Text(r.roleLabel, style: AppTextStyles.labelSmall),
-                    padding: EdgeInsets.zero,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  )),
-                  DataCell(Text(_formatNda(r.ndaAcceptedAt))),
-                  DataCell(_level2Chip(r)),
-                  DataCell(Text(_vdrSummary(r))),
-                ],
-              ),
-            )
-            .toList(),
-      ),
+    return AppDataGrid(
+      allowSorting: true,
+      allowColumnsResizing: true,
+      columns: const [
+        AppDataGridColumn(name: 'email', label: 'Email', minimumWidth: 180),
+        AppDataGridColumn(name: 'name', label: 'Nazwa', minimumWidth: 140),
+        AppDataGridColumn(name: 'role', label: 'Rola', width: 120),
+        AppDataGridColumn(name: 'nda', label: 'NDA', width: 110),
+        AppDataGridColumn(name: 'level2', label: 'Level 2', width: 100),
+        AppDataGridColumn(name: 'vdr', label: 'VDR', width: 100),
+      ],
+      sortValues: list.map((r) => [
+        r.email ?? '',
+        r.displayName ?? '',
+        r.roleLabel,
+        r.ndaAcceptedAt?.millisecondsSinceEpoch ?? 0,
+        r.isIdentityVerified ? 1 : 0,
+        r.vdrAccessForListingIds.length,
+      ]).toList(),
+      rows: list.map((r) => [
+        Text(r.email ?? '—', overflow: TextOverflow.ellipsis),
+        Text(r.displayName ?? '—', overflow: TextOverflow.ellipsis),
+        Chip(
+          label: Text(r.roleLabel, style: AppTextStyles.labelSmall),
+          padding: EdgeInsets.zero,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        Text(_formatNda(r.ndaAcceptedAt)),
+        _level2Chip(r),
+        Text(_vdrSummary(r)),
+      ]).toList(),
     );
   }
 

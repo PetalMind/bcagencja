@@ -124,6 +124,41 @@ class FilterTags extends StatelessWidget {
         () => onFilterRemoved(filters.copyWith(fromOwner: false)),
       ));
     }
+
+    if (filters.buildingClass != null && filters.buildingClass!.isNotEmpty) {
+      tags.add(_buildTag(
+        'Klasa: ${filters.buildingClass}',
+        () => onFilterRemoved(filters.copyWith(buildingClass: null)),
+      ));
+    }
+
+    if (filters.minCeilingHeight != null) {
+      tags.add(_buildTag(
+        'Wys. ≥ ${filters.minCeilingHeight!.toStringAsFixed(1)} m',
+        () => onFilterRemoved(filters.copyWith(minCeilingHeight: null)),
+      ));
+    }
+
+    if (filters.minFloorLoadCapacity != null) {
+      tags.add(_buildTag(
+        'Nośność ≥ ${filters.minFloorLoadCapacity!.toStringAsFixed(1)} t/m²',
+        () => onFilterRemoved(filters.copyWith(minFloorLoadCapacity: null)),
+      ));
+    }
+
+    if (filters.minParkingSpaces != null) {
+      tags.add(_buildTag(
+        'Parking ≥ ${filters.minParkingSpaces} miejsc',
+        () => onFilterRemoved(filters.copyWith(minParkingSpaces: null)),
+      ));
+    }
+
+    if (filters.minElectricalPower != null) {
+      tags.add(_buildTag(
+        'Moc ≥ ${filters.minElectricalPower!.toStringAsFixed(0)} kW',
+        () => onFilterRemoved(filters.copyWith(minElectricalPower: null)),
+      ));
+    }
     
     return Wrap(
       spacing: AppSpacing.sm,

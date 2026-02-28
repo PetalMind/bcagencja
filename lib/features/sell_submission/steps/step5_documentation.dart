@@ -177,6 +177,7 @@ class _Step5DocumentationState extends ConsumerState<Step5Documentation> {
           maxLength: kMaxFileNameLength,
           decoration: const InputDecoration(
             hintText: 'Nazwa pliku',
+            prefixIcon: Icon(Icons.drive_file_rename_outline),
             border: OutlineInputBorder(),
             counterText: '',
           ),

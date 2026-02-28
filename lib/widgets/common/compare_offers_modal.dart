@@ -4,6 +4,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_icons.dart';
 import '../../core/state/models/property_model.dart';
+import 'app_data_grid.dart';
 
 /// Modal porównania 2–5 ofert: tabela parametrów (Cena, ROI, Powierzchnia, itd.).
 void showCompareOffersModal({
@@ -103,29 +104,20 @@ class _CompareOffersSheet extends StatelessWidget {
                     ],
                   )
                 : SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.all(AppSpacing.md),
-                    child: DataTable(
-                      headingRowColor: WidgetStateProperty.all(AppColors.grey50),
+                    child: AppDataGrid(
                       columns: [
-                        const DataColumn(label: Text('Parametr')),
-                        ...properties.map((p) => DataColumn(
-                              label: ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 140),
-                                child: Text(
-                                  p.title,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: AppTextStyles.labelLarge,
-                                ),
-                              ),
+                        const AppDataGridColumn(name: 'param', label: 'Parametr', width: 130),
+                        ...properties.map((p) => AppDataGridColumn(
+                              name: p.id,
+                              label: p.title,
+                              minimumWidth: 130,
                             )),
                       ],
-                      rows: rows.map((r) => DataRow(
-                            cells: [
-                              DataCell(Text(r.label, style: AppTextStyles.labelMedium)),
-                              ...r.values.map((v) => DataCell(Text(v, style: AppTextStyles.bodyMedium))),
-                            ],
-                          )).toList(),
+                      rows: rows.map((r) => [
+                        Text(r.label, style: AppTextStyles.labelMedium),
+                        ...r.values.map((v) => Text(v, style: AppTextStyles.bodyMedium)),
+                      ]).toList(),
                     ),
                   ),
           ),

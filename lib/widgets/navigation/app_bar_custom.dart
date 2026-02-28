@@ -82,12 +82,15 @@ class AppBarCustom extends ConsumerWidget implements PreferredSizeWidget {
                 color: AppColors.white,
               ),
             )
-          : GestureDetector(
-              onTap: () => context.go(AppRouter.home),
-              child: Text(
-                'BC Agencja',
-                style: AppTextStyles.headlineSmall.copyWith(
-                  color: AppColors.white,
+          : MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () => context.go(AppRouter.home),
+                child: Text(
+                  'BC Agencja',
+                  style: AppTextStyles.headlineSmall.copyWith(
+                    color: AppColors.white,
+                  ),
                 ),
               ),
             ),

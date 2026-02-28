@@ -21,6 +21,7 @@ import 'widgets/contact_form.dart';
 import 'widgets/property_description.dart';
 import 'widgets/property_parameters.dart';
 import 'widgets/property_amenities.dart';
+import 'widgets/property_map.dart';
 import 'widgets/similar_listings.dart';
 
 /// Szczegóły oferty z 3-stopniowym modelem dostępu: teaser → Level 2 (pełna oferta) → VDR.
@@ -192,7 +193,10 @@ class PropertyDetailPage extends ConsumerWidget {
                 right: AppSpacing.xl,
                 bottom: AppSpacing.xxl,
               ),
-              child: PropertyInfoPanel(property: property),
+              child: PropertyInfoPanel(
+                property: property,
+                hasVdrAccess: hasVdrAccess,
+              ),
             ),
           ),
         ),
@@ -336,7 +340,7 @@ class PropertyDetailPage extends ConsumerWidget {
                   const SizedBox(height: AppSpacing.xl),
                   // Gallery (and panel on mobile/tablet when in flow)
                   if (includePanelInFlow)
-                    _buildMobileLayout(context, property)
+                    _buildMobileLayout(context, property, hasVdrAccess)
                   else
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 0),
@@ -401,7 +405,7 @@ class PropertyDetailPage extends ConsumerWidget {
                   ],
                   
                   // Similar listings
-                  SimilarListings(propertyId: property.id),
+                  SimilarListings(property: property),
                   const SizedBox(height: AppSpacing.xxl),
                 ],
               ),
@@ -659,7 +663,7 @@ class PropertyDetailPage extends ConsumerWidget {
     );
   }
   
-  Widget _buildMobileLayout(BuildContext context, Property property) {
+  Widget _buildMobileLayout(BuildContext context, Property property, bool hasVdrAccess) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       child: Column(
@@ -669,6 +673,7 @@ class PropertyDetailPage extends ConsumerWidget {
           PropertyInfoPanel(
             property: property,
             onRequestContact: () => _openContactSheet(context),
+            hasVdrAccess: hasVdrAccess,
           ),
         ],
       ),
@@ -729,44 +734,7 @@ class PropertyDetailPage extends ConsumerWidget {
         ),
         const SizedBox(height: AppSpacing.md),
         
-        // Map placeholder
-        Container(
-          height: 300,
-          decoration: BoxDecoration(
-            color: AppColors.grey200,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-          ),
-          child: Stack(
-            children: [
-              Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      AppIcons.map,
-                      size: 48,
-                      color: AppColors.grey400,
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      'Mapa Google Maps',
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      '${property.city}, ${property.district}',
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
+        PropertyMap(property: property, height: 300),
         
         const SizedBox(height: AppSpacing.lg),
         
@@ -918,9 +886,36 @@ class _PropertyTeaserView extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  property.propertyTypeLabel,
-                  style: AppTextStyles.overline.copyWith(color: AppColors.accent),
+                Row(
+                  children: [
+                    Text(
+                      property.propertyTypeLabel,
+                      style: AppTextStyles.overline.copyWith(color: AppColors.accent),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryDark.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusXs),
+                        border: Border.all(color: AppColors.primaryDark.withValues(alpha: 0.2)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.lock_outline, size: 12, color: AppColors.primaryDark),
+                          const SizedBox(width: AppSpacing.xs),
+                          Text(
+                            'Off-Market Exclusive',
+                            style: AppTextStyles.labelSmall.copyWith(
+                              color: AppColors.primaryDark,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
@@ -934,7 +929,7 @@ class _PropertyTeaserView extends ConsumerWidget {
                     Icon(AppIcons.location, size: 18, color: AppColors.textSecondary),
                     const SizedBox(width: AppSpacing.xs),
                     Text(
-                      property.city,
+                      property.teaserLocationDisplay,
                       style: AppTextStyles.bodyLarge.copyWith(color: AppColors.textSecondary),
                     ),
                   ],
@@ -946,24 +941,65 @@ class _PropertyTeaserView extends ConsumerWidget {
                       : property.images.sublist(0, 1),
                 ),
                 const SizedBox(height: AppSpacing.xl),
-                Row(
+                Wrap(
+                  spacing: AppSpacing.lg,
+                  runSpacing: AppSpacing.sm,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Icon(AppIcons.area, size: 20, color: AppColors.textSecondary),
-                    const SizedBox(width: AppSpacing.sm),
-                    Text(
-                      '${property.area.toStringAsFixed(0)} m²',
-                      style: AppTextStyles.bodyLarge.copyWith(color: AppColors.textSecondary),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(AppIcons.area, size: 20, color: AppColors.textSecondary),
+                        const SizedBox(width: AppSpacing.sm),
+                        Text(
+                          'GLA: ${property.area.toStringAsFixed(0)} m²',
+                          style: AppTextStyles.bodyLarge.copyWith(color: AppColors.textSecondary),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: AppSpacing.lg),
-                    Text(
-                      property.formattedPrice,
-                      style: AppTextStyles.titleLarge.copyWith(
-                        color: AppColors.primaryDark,
-                        fontWeight: FontWeight.w600,
+                    if (property.teaserPriceDisplay != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryDark.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                        ),
+                        child: Text(
+                          property.teaserPriceDisplay!,
+                          style: AppTextStyles.titleMedium.copyWith(
+                            color: AppColors.primaryDark,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
-                    ),
                   ],
                 ),
+                if (property.tenant != null && property.tenant!.trim().isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(
+                    children: [
+                      Icon(Icons.store_rounded, size: 20, color: AppColors.textSecondary),
+                      const SizedBox(width: AppSpacing.sm),
+                      Text(
+                        'Najemca: ${property.tenant}',
+                        style: AppTextStyles.bodyLarge.copyWith(color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ],
+                if (property.roi != null && property.roi! > 0) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Row(
+                    children: [
+                      Icon(Icons.trending_up_rounded, size: 20, color: AppColors.textSecondary),
+                      const SizedBox(width: AppSpacing.sm),
+                      Text(
+                        'Yield: ${property.roi!.toStringAsFixed(1)}%',
+                        style: AppTextStyles.bodyLarge.copyWith(color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: AppSpacing.xl),
                 PropertyDescription(
                   title: 'Opis',
@@ -975,9 +1011,16 @@ class _PropertyTeaserView extends ConsumerWidget {
                 Container(
                   padding: const EdgeInsets.all(AppSpacing.lg),
                   decoration: BoxDecoration(
-                    color: AppColors.primaryDark.withValues(alpha: 0.06),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        AppColors.primaryDark.withValues(alpha: 0.05),
+                        AppColors.primaryDark.withValues(alpha: 0.08),
+                      ],
+                    ),
                     borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                    border: Border.all(color: AppColors.primaryDark.withValues(alpha: 0.2)),
+                    border: Border.all(color: AppColors.primaryDark.withValues(alpha: 0.25)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

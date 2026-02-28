@@ -69,6 +69,12 @@ class _MyAppState extends ConsumerState<MyApp> {
   @override
   Widget build(BuildContext context) {
     ref.listen(currentUserProvider, (prev, next) {
+      final user = next?.asData?.value;
+      if (user != null && user.isBlocked) {
+        ref.read(blockedMessageProvider.notifier).state = 'Konto zostało zablokowane.';
+        ref.read(authServiceProvider).signOut();
+        return;
+      }
       final prevId = prev?.asData?.value?.id;
       final nextId = next?.asData?.value?.id;
       if (prevId != nextId) {

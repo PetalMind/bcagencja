@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_colors.dart';
@@ -120,6 +121,7 @@ class _Step4PriceState extends State<Step4Price> {
               suffixText: 'PLN',
               hintText: 'np. 2900000',
               helperText: 'Tylko cyfry, bez liter',
+              prefixIcon: const Icon(AppIcons.price),
               border: const OutlineInputBorder(),
               filled: true,
               fillColor: AppColors.white,

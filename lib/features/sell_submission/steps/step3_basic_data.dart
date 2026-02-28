@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/constants/listing_options.dart';
 import '../input_formatters.dart';
 import '../listing_submission_model.dart';
 
@@ -142,6 +144,7 @@ class _Step3BasicDataState extends State<Step3BasicData> {
           labelText: 'Powierzchnia (m²)',
           suffixText: 'm²',
           helperText: 'Tylko cyfry',
+          prefixIcon: const Icon(AppIcons.area),
           border: const OutlineInputBorder(),
           filled: true,
           fillColor: AppColors.white,
@@ -189,6 +192,63 @@ class _Step3BasicDataState extends State<Step3BasicData> {
           ),
         ],
       ],
+      const SizedBox(height: AppSpacing.xl),
+      Text(
+        'Przeznaczenie lokalu',
+        style: AppTextStyles.titleSmall.copyWith(color: AppColors.primaryDark),
+      ),
+      const SizedBox(height: AppSpacing.sm),
+      Wrap(
+        spacing: AppSpacing.sm,
+        runSpacing: AppSpacing.sm,
+        children: DesignationOptions.all.map((key) {
+          final selected = widget.formData.designation.contains(key);
+          return FilterChip(
+            label: Text(DesignationOptions.label(key)),
+            selected: selected,
+            onSelected: widget.readOnly ? null : (isSelected) {
+              if (isSelected) {
+                widget.formData.designation = [...widget.formData.designation, key];
+              } else {
+                widget.formData.designation = widget.formData.designation.where((e) => e != key).toList();
+              }
+              widget.onDataChanged(widget.formData);
+              setState(() {});
+            },
+          );
+        }).toList(),
+      ),
+      const SizedBox(height: AppSpacing.xl),
+      Text(
+        'Informacje dodatkowe',
+        style: AppTextStyles.titleSmall.copyWith(color: AppColors.primaryDark),
+      ),
+      const SizedBox(height: AppSpacing.xs),
+      Text(
+        'Wybierz wszystko, co dotyczy oferowanego lokalu',
+        style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+      ),
+      const SizedBox(height: AppSpacing.sm),
+      Wrap(
+        spacing: AppSpacing.sm,
+        runSpacing: AppSpacing.sm,
+        children: AdditionalInfoOptions.all.map((key) {
+          final selected = widget.formData.additionalInfo.contains(key);
+          return FilterChip(
+            label: Text(AdditionalInfoOptions.label(key)),
+            selected: selected,
+            onSelected: widget.readOnly ? null : (isSelected) {
+              if (isSelected) {
+                widget.formData.additionalInfo = [...widget.formData.additionalInfo, key];
+              } else {
+                widget.formData.additionalInfo = widget.formData.additionalInfo.where((e) => e != key).toList();
+              }
+              widget.onDataChanged(widget.formData);
+              setState(() {});
+            },
+          );
+        }).toList(),
+      ),
     ];
   }
 
@@ -237,6 +297,7 @@ class _Step3BasicDataState extends State<Step3BasicData> {
           hintText: 'np. 5000',
           suffixText: 'm² = $_areaHa ha',
           helperText: 'Tylko cyfry',
+          prefixIcon: const Icon(AppIcons.area),
           border: const OutlineInputBorder(),
           filled: true,
           fillColor: AppColors.white,
@@ -324,6 +385,7 @@ class _Step3BasicDataState extends State<Step3BasicData> {
           labelText: 'Powierzchnia',
           suffixText: 'm²',
           helperText: 'Tylko cyfry',
+          prefixIcon: const Icon(AppIcons.area),
           border: const OutlineInputBorder(),
           filled: true,
           fillColor: AppColors.white,
@@ -457,6 +519,7 @@ class _TenantCardState extends State<_TenantCard> {
               decoration: InputDecoration(
                 labelText: 'Kim jest najemca?',
                 hintText: 'np. Biedronka, Lidl, Żabka',
+                prefixIcon: const Icon(Icons.business_outlined),
                 border: const OutlineInputBorder(),
                 filled: true,
                 fillColor: AppColors.white,
@@ -479,6 +542,7 @@ class _TenantCardState extends State<_TenantCard> {
                 labelText: 'Miesięczny czynsz (netto)',
                 suffixText: 'PLN',
                 helperText: 'Tylko cyfry',
+                prefixIcon: const Icon(Icons.payments_outlined),
                 border: const OutlineInputBorder(),
                 filled: true,
                 fillColor: AppColors.white,
@@ -497,6 +561,7 @@ class _TenantCardState extends State<_TenantCard> {
         : '';
     return ListTile(
       contentPadding: EdgeInsets.zero,
+      leading: const Icon(AppIcons.calendar, color: AppColors.textSecondary),
       title: Text('Do kiedy trwa umowa?', style: AppTextStyles.labelLarge),
       subtitle: Text(text.isEmpty ? 'Wybierz datę' : text, style: AppTextStyles.bodyMedium),
       trailing: const Icon(Icons.calendar_today_rounded),

@@ -1,27 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/router/app_router.dart';
 
-/// Treść NDA (skrócona, 300–500 słów). W produkcji ładować z CMS lub pliku.
+/// Skrócona treść NDA do wyświetlenia w modalu. Pełna wersja na stronie /umowa-nda.
 const String ndaContentText = '''
-UMOWA O POUFNOŚCI (NDA)
+UMOWA O ZACHOWANIU POUFNOŚCI (NDA)
+BC Agencja Nieruchomości / BCOSMOPOLITAN S.A.
 
-Niniejsza umowa określa warunki udostępniania poufnych informacji dotyczących ofert nieruchomości przez BC Agencja („Udostępniający”) użytkownikowi platformy („Odbiorca”).
+Udostępniający udziela Odbiorcy dostępu do niepublicznych ofert nieruchomości i materiałów inwestycyjnych za pośrednictwem platformy BC Agencja.
 
-1. Definicja informacji poufnych
-Informacjami poufnymi są wszelkie dane, dokumenty, lokalizacje, opisy, wyceny i materiały dotyczące ofert nieruchomości udostępniane w ramach platformy, z wyłączeniem informacji publicznie dostępnych.
+1. Informacje Poufne – to m.in. niepubliczne oferty i lokalizacje, wyceny, opisy techniczne, warunki transakcji, ceny, dane właścicieli oraz materiały marketingowe BC Agencja.
 
-2. Zobowiązania Odbiorcy
-Odbiorca zobowiązuje się: (a) wykorzystywać informacje poufne wyłącznie do własnej oceny inwestycyjnej; (b) nie ujawniać ich osobom trzecim bez pisemnej zgody Udostępniającego; (c) nie kopiować ani nie rozpowszechniać materiałów bez zgody; (d) zabezpieczyć dane przed nieuprawnionym dostępem.
+2. Zobowiązania Odbiorcy: wykorzystywanie Informacji Poufnych wyłącznie do oceny i realizacji transakcji za pośrednictwem platformy; nieujawnianie osobom trzecim bez pisemnej zgody; niekopiowanie i nierozpowszechnianie materiałów; niezwłoczne powiadomienie BC Agencja w razie wycieku; stosowanie należytej staranności przy ochronie danych.
 
-3. Dane są chronione prawnie. Naruszenie obowiązków może skutkować odpowiedzialnością cywilną i karną.
+3. Okres obowiązywania: czas korzystania z platformy oraz 3 lata po usunięciu konta. Zobowiązania co do danych osobowych właścicieli – bezterminowo.
 
-4. Kara umowna za naruszenie niniejszej umowy wynosi 50 000 PLN (pięćdziesiąt tysięcy złotych) za każde naruszenie, bez uszczerbku dla roszczeń o naprawienie szkody.
+4. Naruszenie Umowy: kara umowna 50 000 PLN za każde naruszenie; BC Agencja może dochodzić wyższego odszkodowania; możliwe zablokowanie dostępu i zabezpieczenie sądowe.
 
-5. Umowa wchodzi w życie z chwilą zaakceptowania przez Odbiorcę. Udostępniający zastrzega prawo do weryfikacji tożsamości Odbiorcy.
+5. Umowa podlega prawu polskiemu i wchodzi w życie z chwilą kliknięcia „Akceptuję" w aplikacji (art. 60 KC).
 
-Kontakt: BC Agencja.
+Pełna treść umowy dostępna na stronie „Umowa NDA" w aplikacji.
 ''';
 
 /// Modal z pełnym tekstem NDA, scrollowaniem i śledzeniem czy użytkownik przewinął do końca.
@@ -130,6 +131,20 @@ class _NdaModalState extends State<NdaModal> {
                       style: AppTextStyles.bodyMedium.copyWith(
                         color: AppColors.textPrimary,
                         height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        context.go(AppRouter.umowaNda);
+                      },
+                      child: Text(
+                        'Przeczytaj pełną umowę NDA',
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: AppColors.accent,
+                          decoration: TextDecoration.underline,
+                        ),
                       ),
                     ),
                     const SizedBox(height: AppSpacing.lg),

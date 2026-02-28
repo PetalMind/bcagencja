@@ -94,11 +94,15 @@ class ListingSubmissionService {
   /// Zdjęcia z załączników (jpg/jpeg/png) z polem [downloadUrl] trafiają do [images] i [mainImage].
   static Property propertyFromRecord(ListingSubmissionRecord r) {
     final city = r.locality ?? r.city ?? '';
-    final locFull = city.isNotEmpty && r.voivodeship != null ? '$city, ${r.voivodeship}' : (city.isNotEmpty ? city : (r.voivodeship ?? ''));
-    final title = locFull.isNotEmpty ? '${r.typeShortLabel} – $locFull' : r.typeShortLabel;
+    final voivodeship = _normalizeVoivodeship(r.voivodeship);
+    final title = _teaserTitleFromRecord(r, voivodeship);
     final price = r.expectedPrice ?? r.estimatedValueMin ?? r.estimatedValueMax ?? 0.0;
     final area = r.area ?? 0.0;
     final firstTenant = r.tenants.isNotEmpty && r.tenants.first.name.isNotEmpty ? r.tenants.first : null;
+    final monthlyRent = firstTenant?.monthlyRent ?? r.monthlyRent;
+    final roi = price > 0 && monthlyRent != null && monthlyRent > 0
+        ? (monthlyRent * 12 / price) * 100
+        : null;
     final now = r.createdAt ?? DateTime.now();
     final imageUrls = r.attachments
         .where((a) => a.isPhoto && a.downloadUrl != null && a.downloadUrl!.isNotEmpty)
@@ -125,6 +129,8 @@ class ListingSubmissionService {
       images: imageUrls,
       mainImage: mainImageUrl,
       features: const [],
+      designation: r.designation,
+      additionalInfo: r.additionalInfo,
       yearBuilt: null,
       condition: null,
       buildingClass: null,
@@ -136,8 +142,8 @@ class ListingSubmissionService {
       ceilingHeight: null,
       plotArea: r.propertyType == 'land' ? area : null,
       zoning: r.mpzp,
-      roi: null,
-      currentRent: firstTenant?.monthlyRent,
+      roi: roi,
+      currentRent: firstTenant?.monthlyRent ?? monthlyRent,
       tenant: firstTenant?.name,
       leaseUntil: firstTenant?.leaseUntil,
       verified: false,
@@ -151,7 +157,68 @@ class ListingSubmissionService {
       views: 0,
       favorites: 0,
       vdrDocuments: const [],
+      estimatedValueMin: r.estimatedValueMin,
+      estimatedValueMax: r.estimatedValueMax,
+      voivodeship: voivodeship,
     );
+  }
+
+  static String? _normalizeVoivodeship(String? v) {
+    if (v == null || v.trim().isEmpty) return null;
+    final t = v.trim();
+    if (t.toLowerCase().startsWith('woj.')) return t;
+    return 'woj. $t';
+  }
+
+  /// Teasery: realne tytuły typu „Park handlowy z najemcą spożywczym – woj. śląskie”.
+  static String _teaserTitleFromRecord(ListingSubmissionRecord r, String? voivodeship) {
+    final typeLabel = _teaserTypeLabel(r);
+    final locPart = voivodeship != null ? voivodeship : (r.locality ?? r.city ?? '');
+    if (locPart.isEmpty) return typeLabel;
+    return '$typeLabel – $locPart';
+  }
+
+  static String _teaserTypeLabel(ListingSubmissionRecord r) {
+    final t = r.propertyType ?? r.assetType ?? 'office';
+    final tenantName = r.tenantName?.toLowerCase() ?? '';
+    final hasTenant = r.tenants.isNotEmpty && r.tenants.first.name.isNotEmpty;
+    final tenantCategory = _inferTenantCategory(tenantName);
+
+    switch (t) {
+      case 'retail':
+        if (hasTenant && tenantCategory != null) {
+          return 'Lokal handlowy z najemcą $tenantCategory';
+        }
+        if (hasTenant) return 'Lokal handlowy z najemcą';
+        return 'Lokal handlowy';
+      case 'office':
+        if (hasTenant) return 'Biurowiec z najemcą';
+        return 'Biurowiec';
+      case 'warehouse':
+        if (hasTenant) return 'Magazyn / hala z najemcą';
+        return 'Magazyn / hala';
+      case 'industrial':
+        if (hasTenant) return 'Obiekt przemysłowy z najemcą';
+        return 'Obiekt przemysłowy';
+      case 'land':
+        return 'Działka inwestycyjna';
+      case 'hotel':
+        return 'Hotel / obiekt hotelarski';
+      default:
+        if (hasTenant) return 'Nieruchomość z najemcą';
+        return 'Nieruchomość komercyjna';
+    }
+  }
+
+  static String? _inferTenantCategory(String name) {
+    const spozywcze = ['biedronka', 'lidl', 'kaufland', 'dino', 'lewiatan', 'stokrotka', 'netto', 'aldi', 'carrefour', 'auchan', 'tesco'];
+    const diy = ['leroy', 'castorama', 'obi', 'praktiker', 'bauhaus', 'jysk'];
+    const uslugi = ['pepco', 'action', 'tk maxx', 'primark', 'ccc', 'deichmann', 'new yorker'];
+    final n = name.trim().toLowerCase();
+    for (final s in spozywcze) { if (n.contains(s)) return 'spożywczym'; }
+    for (final s in diy) { if (n.contains(s)) return 'DIY/budowlanym'; }
+    for (final s in uslugi) { if (n.contains(s)) return 'usługowym'; }
+    return null;
   }
 
   /// Aktualizuje status zgłoszenia.
@@ -227,6 +294,8 @@ class ListingSubmissionService {
       'sourceSubmissionId': submissionId,
       'verified': false,
       'promoted': false,
+      if (record.designation.isNotEmpty) 'designation': record.designation,
+      if (record.additionalInfo.isNotEmpty) 'additionalInfo': record.additionalInfo,
     };
 
     final listingRef = await _firestore.collection(_listingsCollection).add(listingData);
@@ -304,6 +373,7 @@ class ListingSubmissionService {
     data.locality = r.locality ?? r.city;
     data.voivodeship = r.voivodeship;
     data.formattedAddress = r.formattedAddress;
+    data.hideExactAddress = r.hideExactAddress ?? true;
     data.area = r.area;
     data.tenantType = r.tenantType;
     if (r.tenants.isNotEmpty) {
@@ -312,6 +382,8 @@ class ListingSubmissionService {
           .toList();
     }
     data.mpzp = r.mpzp;
+    data.designation = List.from(r.designation);
+    data.additionalInfo = List.from(r.additionalInfo);
     data.utilities = List.from(r.utilities);
     data.estimatedValueMin = r.estimatedValueMin;
     data.estimatedValueMax = r.estimatedValueMax;
@@ -346,6 +418,8 @@ class ListingSubmissionRecord {
   final String? locality;
   final String? voivodeship;
   final String? formattedAddress;
+  /// Nie publikować dokładnego adresu (off-market).
+  final bool? hideExactAddress;
   final double? area;
   final String? tenantType;
   final List<TenantEntry> tenants;
@@ -360,6 +434,8 @@ class ListingSubmissionRecord {
     return sum > 0 ? sum : null;
   }
   final String? mpzp;
+  final List<String> designation;
+  final List<String> additionalInfo;
   final List<String> utilities;
   final double? estimatedValueMin;
   final double? estimatedValueMax;
@@ -392,10 +468,13 @@ class ListingSubmissionRecord {
     this.locality,
     this.voivodeship,
     this.formattedAddress,
+    this.hideExactAddress,
     this.area,
     this.tenantType,
     this.tenants = const [],
     this.mpzp,
+    this.designation = const [],
+    this.additionalInfo = const [],
     this.utilities = const [],
     this.estimatedValueMin,
     this.estimatedValueMax,
@@ -414,6 +493,11 @@ class ListingSubmissionRecord {
     this.publishedAt,
     this.listingId,
   });
+
+  static List<String> _toStringList(dynamic v) {
+    if (v == null || v is! List) return const [];
+    return v.map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList();
+  }
 
   static ListingSubmissionRecord fromFirestore(String id, Map<String, dynamic> data) {
     final createdAt = data['createdAt'];
@@ -474,10 +558,13 @@ class ListingSubmissionRecord {
       locality: data['locality'] as String? ?? data['city'] as String?,
       voivodeship: data['voivodeship'] as String?,
       formattedAddress: data['formattedAddress'] as String?,
+      hideExactAddress: data['hideExactAddress'] as bool?,
       area: (data['area'] as num?)?.toDouble(),
       tenantType: data['tenantType'] as String?,
       tenants: tenants,
       mpzp: data['mpzp'] as String?,
+      designation: _toStringList(data['designation']),
+      additionalInfo: _toStringList(data['additionalInfo']),
       utilities: utilities is List<dynamic>
           ? utilities.map((e) => e.toString()).toList()
           : const [],

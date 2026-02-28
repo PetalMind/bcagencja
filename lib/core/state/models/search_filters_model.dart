@@ -43,6 +43,10 @@ class SearchFilters {
   final bool? hasSecurity;
   final bool? hasReception;
   final double? minCeilingHeight;
+  final double? minFloorLoadCapacity; // nośność posadzki (t/m²)
+  final String? buildingClass; // klasa budynku: A+, A, B+, B, C
+  final int? minParkingSpaces;
+  final double? minElectricalPower; // moc przyłączeniowa (kW)
   final bool onlyVerified;
   final bool onlyWithPhotos;
   final bool fromOwner;
@@ -83,6 +87,10 @@ class SearchFilters {
     this.hasSecurity,
     this.hasReception,
     this.minCeilingHeight,
+    this.minFloorLoadCapacity,
+    this.buildingClass,
+    this.minParkingSpaces,
+    this.minElectricalPower,
     this.onlyVerified = false,
     this.onlyWithPhotos = false,
     this.fromOwner = false,
@@ -124,6 +132,10 @@ class SearchFilters {
     bool? hasSecurity,
     bool? hasReception,
     double? minCeilingHeight,
+    double? minFloorLoadCapacity,
+    Object? buildingClass = _omit,
+    int? minParkingSpaces,
+    double? minElectricalPower,
     bool? onlyVerified,
     bool? onlyWithPhotos,
     bool? fromOwner,
@@ -165,6 +177,10 @@ class SearchFilters {
       hasSecurity: hasSecurity ?? this.hasSecurity,
       hasReception: hasReception ?? this.hasReception,
       minCeilingHeight: minCeilingHeight ?? this.minCeilingHeight,
+      minFloorLoadCapacity: minFloorLoadCapacity ?? this.minFloorLoadCapacity,
+      buildingClass: pick(buildingClass, this.buildingClass),
+      minParkingSpaces: minParkingSpaces ?? this.minParkingSpaces,
+      minElectricalPower: minElectricalPower ?? this.minElectricalPower,
       onlyVerified: onlyVerified ?? this.onlyVerified,
       onlyWithPhotos: onlyWithPhotos ?? this.onlyWithPhotos,
       fromOwner: fromOwner ?? this.fromOwner,
@@ -205,6 +221,10 @@ class SearchFilters {
     if (fromOwner) count++;
     if (hasLoadingDock == true || hasSecurity == true || hasReception == true) count++;
     if (minCeilingHeight != null) count++;
+    if (minFloorLoadCapacity != null) count++;
+    if (buildingClass != null && buildingClass!.isNotEmpty) count++;
+    if (minParkingSpaces != null) count++;
+    if (minElectricalPower != null) count++;
     return count;
   }
 

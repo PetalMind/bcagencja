@@ -88,7 +88,9 @@ class _InviteRegistrationPageState extends ConsumerState<InviteRegistrationPage>
       await auth.completeInviteRegistration(
         token: widget.token,
         displayName: _displayNameController.text.trim(),
-        phone: _phoneController.text.trim(),
+        phone: _phoneController.text.trim().isEmpty
+            ? ''
+            : '+48 ${_phoneController.text.trim()}',
         password: _passwordController.text,
         regulaminAccepted: true,
       );
@@ -213,22 +215,20 @@ class _InviteRegistrationPageState extends ConsumerState<InviteRegistrationPage>
                     controller: _phoneController,
                     keyboardType: TextInputType.phone,
                     inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[0-9+\s\-()]')),
-                      LengthLimitingTextInputFormatter(20),
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9\s\-()]')),
+                      LengthLimitingTextInputFormatter(9),
                     ],
                     decoration: const InputDecoration(
-                      labelText: 'Telefon*',
-                      hintText: '+48 123 456 789',
+                      labelText: 'Numer telefonu (opcjonalnie)',
+                      hintText: '123 456 789',
+                      prefixText: '+48 ',
                       border: OutlineInputBorder(),
                     ),
                     validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'Podaj telefon.';
-                      if (RegExp(r'[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]').hasMatch(v)) {
-                        return 'Numer telefonu może zawierać tylko cyfry oraz znaki +, -, spacje, nawiasy.';
-                      }
+                      if (v == null || v.trim().isEmpty) return null;
                       final digitsOnly = v.replaceAll(RegExp(r'[^0-9]'), '');
-                      if (digitsOnly.length < 9) {
-                        return 'Numer telefonu musi zawierać co najmniej 9 cyfr.';
+                      if (digitsOnly.length != 9) {
+                        return 'Wpisz 9 cyfr numeru.';
                       }
                       return null;
                     },

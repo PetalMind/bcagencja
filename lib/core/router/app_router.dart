@@ -29,12 +29,22 @@ import '../../features/dashboard/pages/admin_users_verifications_page.dart';
 import '../../features/about/about_page.dart';
 import '../../features/blog/blog_page.dart';
 import '../../features/contact/contact_page.dart';
+import '../../features/legal/privacy_policy_page.dart';
+import '../../features/legal/nda_page.dart';
 import '../../features/roi_calculator/roi_calculator_page.dart';
+import '../../features/login/linkedin_callback_page.dart';
 import '../../features/login/login_page.dart';
 import '../../features/registration/registration_page.dart';
 import '../../features/registration/complete_oauth_registration_page.dart';
-import '../../features/registration/nip_registration_page.dart';
+import '../../features/registration/nip/registration_nip_step_page.dart';
+import '../../features/registration/nip/registration_nip_details_step_page.dart';
+import '../../features/registration/nip/registration_nip_terms_step_page.dart';
+import '../../features/registration/nip/registration_nip_success_page.dart';
 import '../../features/registration/invite_registration_page.dart';
+import '../../features/registration/email/registration_email_step_page.dart';
+import '../../features/registration/email/registration_email_link_handler_page.dart';
+import '../../features/registration/email/registration_details_step_page.dart';
+import '../../features/registration/email/registration_terms_step_page.dart';
 import '../../features/verify_account/verify_account_page.dart';
 import '../../features/sell_submission/sell_submission_page.dart';
 import '../../features/sell_submission/sell_submission_success_page.dart';
@@ -49,9 +59,18 @@ class AppRouter {
   static const String kalkulatorRoi = '/kalkulator-roi';
   static const String chceSprzedac = '/chce-sprzedac';
   static const String logowanie = '/logowanie';
+  /// Callback po logowaniu LinkedIn (OpenID Connect).
+  static const String authLinkedInCallback = '/auth/linkedin-callback';
   static const String rejestracja = '/rejestracja';
   static const String rejestracjaDokoncz = '/rejestracja/dokoncz';
   static const String rejestracjaNip = '/rejestracja/nip';
+  static const String rejestracjaNipDane = '/rejestracja/nip/dane';
+  static const String rejestracjaNipRegulamin = '/rejestracja/nip/regulamin';
+  static const String rejestracjaNipSukces = '/rejestracja/nip/sukces';
+  static const String rejestracjaEmail = '/rejestracja/email';
+  static const String rejestracjaEmailLink = '/rejestracja/email-link';
+  static const String rejestracjaDane = '/rejestracja/dane';
+  static const String rejestracjaRegulamin = '/rejestracja/regulamin';
   static const String zaproszenie = '/zaproszenie';
   static const String weryfikacja = '/weryfikacja';
   static const String search = '/search';
@@ -84,6 +103,8 @@ class AppRouter {
   static const String about = '/about';
   static const String blog = '/blog';
   static const String contact = '/contact';
+  static const String politykaPrywatnosci = '/polityka-prywatnosci';
+  static const String umowaNda = '/umowa-nda';
   static const String buttonShowcase = '/showcase/buttons';
 
   /// Wywołaj notifyListeners() gdy stan auth się zmienia – router przeładuje redirect.
@@ -139,6 +160,15 @@ class AppRouter {
           returnTo: state.uri.queryParameters['returnTo'],
         ),
       ),
+      GoRoute(
+        path: '/auth/linkedin-callback',
+        name: 'authLinkedInCallback',
+        builder: (context, state) => LinkedInCallbackPage(
+          code: state.uri.queryParameters['code'],
+          state: state.uri.queryParameters['state'],
+          error: state.uri.queryParameters['error'],
+        ),
+      ),
       // Wszystkie pozostałe widoki w shellu ze stałym sidebarem
       ShellRoute(
         builder: (context, state, child) => ScaffoldWithSidebar(
@@ -157,10 +187,15 @@ class AppRouter {
             path: oferty,
             name: 'oferty',
             builder: (context, state) => ListingsResultsPage(
+              searchQuery: state.uri.queryParameters['q'],
               typFilter: state.uri.queryParameters['typ'],
               roiMin: state.uri.queryParameters['roiMin'],
               cenaMin: state.uri.queryParameters['cenaMin'],
               cenaMax: state.uri.queryParameters['cenaMax'],
+              areaMin: state.uri.queryParameters['areaMin'],
+              areaMax: state.uri.queryParameters['areaMax'],
+              voivodeship: state.uri.queryParameters['woj'],
+              tenant: state.uri.queryParameters['tenant'],
             ),
           ),
           // Kalkulator ROI – publiczne narzędzie
@@ -202,11 +237,54 @@ class AppRouter {
               returnTo: state.uri.queryParameters['returnTo'],
             ),
           ),
-          // Rejestracja firmowa przez NIP
+          // Rejestracja firmowa przez NIP (kroki: NIP → dane → regulamin → sukces)
           GoRoute(
             path: 'nip',
             name: 'rejestracjaNip',
-            builder: (context, state) => const NipRegistrationPage(),
+            builder: (context, state) => const RegistrationNipStepPage(),
+            routes: [
+              GoRoute(
+                path: 'dane',
+                name: 'rejestracjaNipDane',
+                builder: (context, state) =>
+                    const RegistrationNipDetailsStepPage(),
+              ),
+              GoRoute(
+                path: 'regulamin',
+                name: 'rejestracjaNipRegulamin',
+                builder: (context, state) =>
+                    const RegistrationNipTermsStepPage(),
+              ),
+              GoRoute(
+                path: 'sukces',
+                name: 'rejestracjaNipSukces',
+                builder: (context, state) =>
+                    const RegistrationNipSuccessPage(),
+              ),
+            ],
+          ),
+          // Rejestracja e-mail (kroki: email → link → dane → regulamin)
+          GoRoute(
+            path: 'email',
+            name: 'rejestracjaEmail',
+            builder: (context, state) => const RegistrationEmailStepPage(),
+          ),
+          GoRoute(
+            path: 'email-link',
+            name: 'rejestracjaEmailLink',
+            builder: (context, state) => RegistrationEmailLinkHandlerPage(
+              email: state.uri.queryParameters['email'],
+            ),
+          ),
+          GoRoute(
+            path: 'dane',
+            name: 'rejestracjaDane',
+            builder: (context, state) => const RegistrationDetailsStepPage(),
+          ),
+          GoRoute(
+            path: 'regulamin',
+            name: 'rejestracjaRegulamin',
+            builder: (context, state) => const RegistrationTermsStepPage(),
           ),
         ],
       ),
@@ -239,10 +317,15 @@ class AppRouter {
         path: searchResults,
         name: 'searchResults',
         builder: (context, state) => ListingsResultsPage(
+          searchQuery: state.uri.queryParameters['q'],
           typFilter: state.uri.queryParameters['typ'],
           roiMin: state.uri.queryParameters['roiMin'],
           cenaMin: state.uri.queryParameters['cenaMin'],
           cenaMax: state.uri.queryParameters['cenaMax'],
+          areaMin: state.uri.queryParameters['areaMin'],
+          areaMax: state.uri.queryParameters['areaMax'],
+          voivodeship: state.uri.queryParameters['woj'],
+          tenant: state.uri.queryParameters['tenant'],
         ),
       ),
       
@@ -400,6 +483,18 @@ class AppRouter {
         path: contact,
         name: 'contact',
         builder: (context, state) => const ContactPage(),
+      ),
+      // Polityka Prywatności
+      GoRoute(
+        path: politykaPrywatnosci,
+        name: 'politykaPrywatnosci',
+        builder: (context, state) => const PrivacyPolicyPage(),
+      ),
+      // Umowa NDA (pełna treść)
+      GoRoute(
+        path: umowaNda,
+        name: 'umowaNda',
+        builder: (context, state) => const NdaPage(),
       ),
       
       // Button Showcase (for development)

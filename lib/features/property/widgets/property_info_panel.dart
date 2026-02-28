@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -10,6 +9,7 @@ import '../../../core/state/models/property_model.dart';
 import '../../../core/state/providers/auth_provider.dart';
 import '../../../core/state/providers/favorites_provider.dart';
 import '../../../core/state/providers/smart_favorites_provider.dart';
+import '../../../core/services/vdr_document_service.dart';
 import '../../../widgets/common/custom_button.dart';
 import '../../../widgets/common/save_to_collection_modal.dart';
 import 'contact_form.dart';
@@ -23,17 +23,24 @@ class PropertyInfoPanel extends ConsumerWidget {
   /// Na mobile: wywołane po naciśnięciu "Zapytaj o ofertę" – np. otwarcie bottom sheet z formularzem.
   final VoidCallback? onRequestContact;
 
+  /// Poziom 3: użytkownik ma dostęp do VDR.
+  final bool hasVdrAccess;
+
   const PropertyInfoPanel({
     super.key,
     required this.property,
     this.onRequestContact,
+    this.hasVdrAccess = false,
   });
 
-  Future<void> _makePhoneCall(String phoneNumber) async {
-    final Uri phoneUri = Uri(scheme: 'tel', path: phoneNumber);
-    if (await canLaunchUrl(phoneUri)) {
-      await launchUrl(phoneUri);
-    }
+  void _downloadTeaserPdf(BuildContext context) {
+    // TODO: integracja z endpointem teaser PDF
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Teaser PDF będzie dostępny wkrótce'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   Future<void> _shareProperty(BuildContext context) async {
@@ -82,6 +89,29 @@ class PropertyInfoPanel extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // —— Zapisz + Udostępnij ——
+          Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _SaveOfferButton(property: property),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: CustomButton(
+                    label: 'Udostępnij',
+                    icon: AppIcons.share,
+                    onPressed: () => _shareProperty(context),
+                    variant: ButtonVariant.outlined,
+                    size: ButtonSize.small,
+                    fullWidth: true,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
           // —— Cena ——
           _SectionHeader(
             label: 'Cena',
@@ -156,13 +186,17 @@ class PropertyInfoPanel extends ConsumerWidget {
               AppSpacing.lg,
               isMobile ? AppSpacing.sm : AppSpacing.md,
               AppSpacing.lg,
-              AppSpacing.lg,
+              AppSpacing.md,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (!isMobile) const ContactForm(),
-                if (isMobile && onRequestContact != null) ...[
+                if (!isMobile)
+                  _ContactSection(
+                    onRequestContact: null,
+                    onFormSuccess: () {},
+                  )
+                else if (onRequestContact != null)
                   CustomButton(
                     label: 'Zapytaj o ofertę',
                     icon: AppIcons.message,
@@ -170,59 +204,23 @@ class PropertyInfoPanel extends ConsumerWidget {
                     fullWidth: true,
                     size: ButtonSize.large,
                   ),
-                  if (property.ownerPhone != null) ...[
-                    const SizedBox(height: AppSpacing.sm),
-                    CustomButton(
-                      label: property.ownerPhone!,
-                      icon: AppIcons.phone,
-                      onPressed: () => _makePhoneCall(property.ownerPhone!),
-                      fullWidth: true,
-                      variant: ButtonVariant.outlined,
-                    ),
-                  ],
-                ] else if (property.ownerPhone != null) ...[
-                  if (!isMobile) const SizedBox(height: AppSpacing.md),
-                  CustomButton(
-                    label: property.ownerPhone!,
-                    icon: AppIcons.phone,
-                    onPressed: () => _makePhoneCall(property.ownerPhone!),
-                    fullWidth: true,
-                    variant: isMobile
-                        ? ButtonVariant.primary
-                        : ButtonVariant.outlined,
-                  ),
-                ],
+                const SizedBox(height: AppSpacing.sm),
+                CustomButton(
+                  label: 'Pobierz teaser PDF',
+                  icon: AppIcons.download,
+                  onPressed: () => _downloadTeaserPdf(context),
+                  fullWidth: true,
+                  variant: ButtonVariant.outlined,
+                  size: ButtonSize.small,
+                ),
               ],
             ),
           ),
 
-          // —— Akcje (zapisz ofertę, udostępnij) ——
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              AppSpacing.lg,
-              0,
-              AppSpacing.lg,
-              AppSpacing.lg,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _SaveOfferButton(property: property),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: CustomButton(
-                    label: 'Udostępnij',
-                    icon: AppIcons.share,
-                    onPressed: () => _shareProperty(context),
-                    variant: ButtonVariant.outlined,
-                    size: ButtonSize.small,
-                    fullWidth: true,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          // —— VDR (Poziom 3) ——
+          if (hasVdrAccess) _VdrSidebarSection(property: property),
+
+          const SizedBox(height: AppSpacing.lg),
         ],
       ),
     );
@@ -313,6 +311,151 @@ class _ParamItem {
 
 /// Przycisk „Zapisz ofertę” / „Zapisano” – otwiera modal kolekcji lub usuwa z zapisanych.
 /// Nie wyświetlany dla ofert własnego autorstwa (własna oferta nie może być zapisana do ulubionych).
+/// Sekcja kontaktu: przycisk "Zapytaj o ofertę" -> po kliknięciu formularz z animacją.
+class _ContactSection extends StatefulWidget {
+  const _ContactSection({
+    this.onRequestContact,
+    required this.onFormSuccess,
+  });
+  final VoidCallback? onRequestContact;
+  final VoidCallback onFormSuccess;
+
+  @override
+  State<_ContactSection> createState() => _ContactSectionState();
+}
+
+class _ContactSectionState extends State<_ContactSection> {
+  bool _showForm = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (!_showForm)
+          CustomButton(
+            label: 'Zapytaj o ofertę',
+            icon: AppIcons.message,
+            onPressed: () => setState(() => _showForm = true),
+            fullWidth: true,
+            size: ButtonSize.large,
+          )
+        else
+          AnimatedSize(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ContactForm(
+                  compact: true,
+                  onSuccess: () {
+                    setState(() => _showForm = false);
+                    widget.onFormSuccess();
+                  },
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _VdrSidebarSection extends ConsumerWidget {
+  const _VdrSidebarSection({required this.property});
+  final Property property;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final docs = property.vdrDocuments;
+    final service = ref.read(vdrDocumentServiceProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _SectionDivider(),
+        _SectionHeader(label: 'Virtual Data Room', icon: Icons.folder_special_rounded),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.lg),
+          child: Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.success.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded, size: 20, color: AppColors.warning),
+                    const SizedBox(width: AppSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        'Pobrane pliki zawierają znak wodny (Twoje dane, data, IP).',
+                        style: AppTextStyles.labelSmall.copyWith(color: AppColors.textSecondary),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.md),
+                if (docs.isEmpty)
+                  CustomButton(
+                    label: 'Otwórz VDR',
+                    icon: Icons.folder_open_rounded,
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Brak dokumentów w VDR'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
+                    fullWidth: true,
+                    size: ButtonSize.large,
+                  )
+                else
+                  CustomButton(
+                    label: 'Pobierz pliki',
+                    icon: AppIcons.download,
+                    onPressed: () => _downloadFirstDoc(context, service),
+                    fullWidth: true,
+                    size: ButtonSize.large,
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _downloadFirstDoc(BuildContext context, VdrDocumentService service) async {
+    if (property.vdrDocuments.isEmpty) return;
+    final doc = property.vdrDocuments.first;
+    final filename = doc.name.endsWith('.pdf') ? doc.name : '${doc.name}.pdf';
+    final result = await service.downloadWithWatermark(
+      listingId: property.id,
+      documentPath: doc.storagePath,
+      filename: filename,
+    );
+    if (!context.mounted) return;
+    final snackBar = switch (result) {
+      VdrDownloadSuccess() => SnackBar(
+          content: Text('Pobrano: $filename (z Twoim znakiem wodnym)'),
+          backgroundColor: AppColors.success,
+        ),
+      VdrDownloadFailure(:final message) => SnackBar(
+          content: Text(message),
+          backgroundColor: AppColors.error,
+        ),
+    };
+    ScaffoldMessenger.of(context).showSnackBar(snackBar);
+  }
+}
+
 class _SaveOfferButton extends ConsumerWidget {
   const _SaveOfferButton({required this.property});
 

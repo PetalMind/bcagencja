@@ -14,6 +14,7 @@ import 'sign_in_google_native.dart'
     if (dart.library.html) 'sign_in_google_stub.dart' as sign_in_google;
 
 import 'app_user.dart';
+import 'linkedin_auth.dart';
 
 void _authLog(String message, [Object? detail]) {
   // Logi wyłączone – odkomentuj poniżej, aby włączyć w debug:
@@ -97,6 +98,7 @@ class AuthService {
       budgetMax: data['budgetMax'] as int?,
       emailVerified: data['emailVerified'] as bool? ?? false,
       linkedInProfileUrl: data['linkedInProfileUrl'] as String?,
+      isBlocked: data['blocked'] as bool? ?? false,
     );
   }
 
@@ -166,6 +168,24 @@ class AuthService {
     }
     final userCred = await sign_in_google.signInWithGoogleNative(_auth);
     if (userCred != null) {
+      await _ensureUserProfile(userCred.user!);
+    }
+    return userCred;
+  }
+
+  /// Logowanie przez LinkedIn (OpenID Connect).
+  /// Działa tylko na web. Zwraca URL do przekierowania (caller powinien użyć url_launcher),
+  /// żeby uniknąć blokady przeglądarki przy programowym location.href.
+  /// [returnTo] – ścieżka do przekierowania po zalogowaniu (np. /dashboard).
+  Future<String?> signInWithLinkedIn([String? returnTo]) async {
+    if (!kIsWeb) return null;
+    return buildLinkedInAuthUrl(returnTo);
+  }
+
+  /// Zalogowanie custom tokenem zwróconym przez Cloud Function po wymianie kodu LinkedIn.
+  Future<UserCredential?> signInWithLinkedInCustomToken(String customToken) async {
+    final userCred = await _auth.signInWithCustomToken(customToken);
+    if (userCred.user != null) {
       await _ensureUserProfile(userCred.user!);
     }
     return userCred;
@@ -252,6 +272,59 @@ class AuthService {
   /// Reset hasła (wysłanie linku na email).
   Future<void> sendPasswordResetEmail(String email) async {
     await _auth.sendPasswordResetEmail(email: email.trim());
+  }
+
+  /// Wysłanie linku weryfikacyjnego na email (rejestracja krok 1).
+  /// [continueUrl] – pełny URL, na który użytkownik wróci po kliknięciu linku (np. origin + /rejestracja/email-link?email=...).
+  Future<void> sendSignInLinkToEmail({
+    required String email,
+    required String continueUrl,
+  }) async {
+    final actionCodeSettings = ActionCodeSettings(
+      url: continueUrl,
+      handleCodeInApp: true,
+    );
+    await _auth.sendSignInLinkToEmail(
+      email: email.trim(),
+      actionCodeSettings: actionCodeSettings,
+    );
+  }
+
+  /// Zalogowanie przez link z emaila (po kliknięciu linku weryfikacyjnego).
+  Future<UserCredential> signInWithEmailLink({
+    required String email,
+    required String emailLink,
+  }) async {
+    final userCred = await _auth.signInWithEmailLink(
+      email: email.trim(),
+      emailLink: emailLink,
+    );
+    if (userCred.user != null) {
+      await _ensureUserProfile(userCred.user!);
+    }
+    return userCred;
+  }
+
+  /// Ustawienie hasła i profilu dla użytkownika z rejestracji przez link (krok 2).
+  Future<void> setPasswordAndProfile({
+    required String displayName,
+    required String password,
+    String? postalCode,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) throw StateError('Brak zalogowanego użytkownika');
+
+    await user.updatePassword(password);
+
+    final ref = _firestore.collection('users').doc(user.uid);
+    final data = <String, dynamic>{
+      'displayName': displayName.trim(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+    if (postalCode != null && postalCode.trim().isNotEmpty) {
+      data['postalCode'] = postalCode.trim().replaceAll(RegExp(r'[^0-9\-]'), '');
+    }
+    await ref.set(data, SetOptions(merge: true));
   }
 
   String _generateNonce([int length = 32]) {
@@ -370,6 +443,7 @@ class AuthService {
   /// Rejestracja firmowa przez NIP: tworzy konto email+hasło, zapisuje pełne dane firmy z rejestru WL, wysyła weryfikację email.
   /// Konto można założyć tylko po zweryfikowanym NIP i zaakceptowanym NDA.
   /// accessLevel pozostaje teaser do weryfikacji email.
+  /// Kolejność: Auth → token → Firestore → email – tak żeby przy błędzie zapisu do Firestore nie wysyłać e-maila.
   Future<UserCredential> registerWithNip({
     required String email,
     required String password,
@@ -396,13 +470,14 @@ class AuthService {
     );
     final user = userCred.user!;
     _authLog('registerWithNip: konto utworzone', 'uid=${user.uid}');
-    _authLog('registerWithNip: sendEmailVerification');
-    await user.sendEmailVerification();
+
+    // Najpierw token, potem Firestore – dopiero na końcu e-mail. Dzięki temu przy błędzie zapisu użytkownik nie dostaje e-maila przy nieudanym „załóż konto”.
+    await user.getIdToken(true);
 
     _authLog('registerWithNip: zapis profilu do Firestore');
     final ref = _firestore.collection('users').doc(user.uid);
     final nipClean = nip.replaceAll(RegExp(r'[^0-9]'), '');
-    await ref.set({
+    final profileData = {
       'email': user.email,
       'displayName': displayName.trim(),
       'phone': phone.trim(),
@@ -421,7 +496,25 @@ class AuthService {
       'role': 'lead',
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    };
+
+    try {
+      await ref.set(profileData, SetOptions(merge: true));
+    } catch (e) {
+      // Na webie token może być jeszcze niepropagowany – jedna próba po krótkim opóźnieniu.
+      final isPermissionDenied = e.toString().toLowerCase().contains('permission-denied') ||
+          e.toString().toLowerCase().contains('insufficient permissions');
+      if (kIsWeb && isPermissionDenied) {
+        _authLog('registerWithNip: retry Firestore po permission-denied');
+        await Future<void>.delayed(const Duration(milliseconds: 1500));
+        await ref.set(profileData, SetOptions(merge: true));
+      } else {
+        rethrow;
+      }
+    }
+
+    _authLog('registerWithNip: sendEmailVerification');
+    await user.sendEmailVerification();
 
     _authLog('registerWithNip: log NDA (w tle)');
     unawaited(

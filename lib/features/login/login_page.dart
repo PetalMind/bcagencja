@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/auth/linkedin_auth.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_text_styles.dart';
@@ -156,6 +157,21 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }
   }
 
+  /// Na web: przekierowanie musi być synchroniczne (bez await), żeby strona LinkedIn
+  /// otworzyła się w tej samej karcie, a nie w iframe (CSP / content blocker).
+  void _handleLinkedInSignIn() {
+    _loginLog('_handleLinkedInSignIn start');
+    if (!kIsWeb) return;
+    final url = buildLinkedInAuthUrl(widget.returnTo);
+    if (url == null || url.isEmpty) {
+      setState(() {
+        _errorMessage = 'Logowanie przez LinkedIn nie jest dostępne (brak konfiguracji lub tylko na web).';
+      });
+      return;
+    }
+    redirectToLinkedIn(url);
+  }
+
   Future<void> _handleEmailPasswordSubmit() async {
     if (!_formKey.currentState!.validate()) return;
     _loginLog('_handleEmailPasswordSubmit start');
@@ -232,13 +248,28 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<String?>(blockedMessageProvider, (prev, next) {
+      final msg = next;
+      if (msg != null && msg.isNotEmpty && context.mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(msg), backgroundColor: AppColors.error),
+            );
+            ref.read(blockedMessageProvider.notifier).state = null;
+          }
+        });
+      }
+    });
+
     final user = ref.watch(currentUserProvider).asData?.value;
     final isMobile =
         MediaQuery.of(context).size.width < AppSpacing.mobileBreakpoint;
     final showApple = !kIsWeb; // Apple na web wymaga dodatkowej konfiguracji
+    final showLinkedIn = kIsWeb; // LinkedIn OAuth przez redirect tylko na web
 
     // Już zalogowany – przekieruj do returnTo lub dokończ rejestrację / dashboard
-    if (user != null) {
+    if (user != null && !user.isBlocked) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!context.mounted) return;
         final target = widget.returnTo ?? AppRouter.dashboard;
@@ -289,7 +320,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  'Zaloguj się przez Google, Apple lub e-mail i hasło.',
+                  'Zaloguj się przez Google, Apple, LinkedIn lub e-mail i hasło.',
                   style: AppTextStyles.bodyMedium.copyWith(
                     color: AppColors.textSecondary,
                   ),
@@ -348,6 +379,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     icon: Icons.apple,
                     label: 'Kontynuuj z Apple',
                     useDarkStyle: true,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                ],
+                // LinkedIn (tylko web – OAuth redirect)
+                if (showLinkedIn) ...[
+                  _AuthButton(
+                    onPressed: _isLoading ? null : _handleLinkedInSignIn,
+                    icon: Icons.work_outline,
+                    label: 'Kontynuuj z LinkedIn',
                   ),
                   const SizedBox(height: AppSpacing.sm),
                 ],

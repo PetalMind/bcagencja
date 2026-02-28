@@ -39,6 +39,8 @@ class ListingSubmissionData {
   String? formattedAddress;
   double? latitude;
   double? longitude;
+  /// Nie publikować dokładnego adresu – pokazywać tylko rejon (off-market).
+  bool hideExactAddress = true;
   /// Miasto – alias dla locality (kompatybilność wsteczna).
   String? get city => locality;
   set city(String? v) => locality = v;
@@ -47,6 +49,10 @@ class ListingSubmissionData {
   double? area; // m² GLA lub powierzchnia działki
   /// Dla nieruchomości: long_term, short_term, vacant
   String? tenantType;
+  /// Przeznaczenie lokalu: gastronomiczny, biurowy, handlowy, usługowy (multi-select)
+  List<String> designation = [];
+  /// Informacje dodatkowe – wybór z listy (multi-select)
+  List<String> additionalInfo = [];
   /// Lista najemców (może być np. 4 najemców w jednej lokalizacji).
   List<TenantEntry> tenants = [];
   /// Dla gruntu: zoning w MPZP
@@ -153,11 +159,14 @@ class ListingSubmissionData {
     formattedAddress = other.formattedAddress;
     latitude = other.latitude;
     longitude = other.longitude;
+    hideExactAddress = other.hideExactAddress;
     area = other.area;
     tenantType = other.tenantType;
     tenants = other.tenants
         .map((t) => TenantEntry(name: t.name, leaseUntil: t.leaseUntil, monthlyRent: t.monthlyRent))
         .toList();
+    designation = List.from(other.designation);
+    additionalInfo = List.from(other.additionalInfo);
     mpzp = other.mpzp;
     utilities = List.from(other.utilities);
     estimatedValueMin = other.estimatedValueMin;
@@ -194,11 +203,14 @@ class ListingSubmissionData {
       'formattedAddress': formattedAddress?.trim().isEmpty == true ? null : formattedAddress?.trim(),
       'latitude': latitude,
       'longitude': longitude,
+      'hideExactAddress': hideExactAddress,
       'area': area,
       'tenantType': tenantType?.trim().isEmpty == true ? null : tenantType,
       'tenants': tenants.where((t) => t.name.trim().isNotEmpty).isEmpty
           ? null
           : tenants.where((t) => t.name.trim().isNotEmpty).map((t) => t.toJson()).toList(),
+      'designation': designation.isEmpty ? null : designation,
+      'additionalInfo': additionalInfo.isEmpty ? null : additionalInfo,
       'mpzp': mpzp?.trim().isEmpty == true ? null : mpzp,
       'utilities': utilities.isEmpty ? null : utilities,
       'estimatedValueMin': estimatedValueMin,

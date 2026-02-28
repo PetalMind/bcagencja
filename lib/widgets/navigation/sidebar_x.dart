@@ -64,7 +64,11 @@ class _SidebarXAvatar extends ConsumerWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
         child: user?.photoUrl != null
-            ? Image(image: NetworkImage(user!.photoUrl!), fit: BoxFit.cover)
+            ? Image(
+                image: NetworkImage(user!.photoUrl!),
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => const Icon(AppIcons.profile, size: AppSpacing.iconMd, color: AppColors.white),
+              )
             : const Icon(AppIcons.profile, size: AppSpacing.iconMd, color: AppColors.white),
       ),
     );
@@ -192,12 +196,17 @@ class _AvatarPickerPage extends StatelessWidget {
 
 /// Sidebar z rozwijalnym podmenu (jak oryginalny [Sidebar]).
 /// Zawartość menu: role, pozycje, header, footer; sekcje z dziećmi są zwijane/rozwijane.
+/// Obsługuje tryb zwinięty [isCollapsed] – pokazuje tylko ikony.
 class SidebarXShell extends ConsumerStatefulWidget {
   final String? currentRoute;
+  final bool isCollapsed;
+  final VoidCallback? onToggleCollapsed;
 
   const SidebarXShell({
     super.key,
     this.currentRoute,
+    this.isCollapsed = false,
+    this.onToggleCollapsed,
   });
 
   @override
@@ -846,6 +855,7 @@ class _SidebarXShellState extends ConsumerState<SidebarXShell> {
     final user = ref.watch(currentUserProvider).asData?.value;
     final roleLevel = user?.effectiveRoleLevel ?? UserRoleLevel.guest;
     final items = _menuItemsForRole(roleLevel, user);
+    final isCollapsed = widget.isCollapsed;
 
     if (roleLevel == UserRoleLevel.guest || items.isEmpty) {
       return const SizedBox.shrink();
@@ -853,25 +863,74 @@ class _SidebarXShellState extends ConsumerState<SidebarXShell> {
 
     return Material(
       color: AppColors.white,
-      child: SizedBox(
-        width: 280,
-        child: Column(
-          children: [
-            _buildHeader(context, roleLevel, user),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
-                children: _buildMenuItems(context, roleLevel, user),
-              ),
-            ),
-            _buildFooter(context),
-          ],
-        ),
+      child: Column(
+        children: [
+          _buildHeader(context, roleLevel, user),
+          Expanded(
+            child: isCollapsed
+                ? _buildCollapsedMenu(context, roleLevel, user)
+                : ListView(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+                    children: _buildMenuItems(context, roleLevel, user),
+                  ),
+          ),
+          _buildFooter(context),
+        ],
       ),
     );
   }
 
+  Widget _buildCollapsedMenu(BuildContext context, UserRoleLevel roleLevel, AppUser? user) {
+    final items = _menuItemsForRole(roleLevel, user);
+    final activeItemKey = _getActiveItemKey(items, null);
+
+    return ListView(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      children: items.map((item) {
+        final key = _itemKey(null, item.title);
+        final isActive = activeItemKey != null &&
+            (key == activeItemKey || _sectionContainsActiveKey(item, null, activeItemKey));
+        return Tooltip(
+          message: item.title,
+          preferBelow: false,
+          waitDuration: const Duration(milliseconds: 300),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                final route = item.hasChildren ? item.children.first.route : item.route;
+                final qp = item.hasChildren ? item.children.first.queryParams : item.queryParams;
+                if (route != null) {
+                  final uri = qp != null && qp.isNotEmpty
+                      ? Uri(path: route, queryParameters: qp)
+                      : Uri(path: route);
+                  if (context.mounted) context.go(uri.toString());
+                }
+              },
+              child: Container(
+                height: 48,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: isActive ? AppColors.grey100 : null,
+                  border: isActive
+                      ? const Border(left: BorderSide(color: AppColors.accent, width: 3))
+                      : null,
+                ),
+                child: Icon(
+                  item.icon,
+                  size: AppSpacing.iconMd,
+                  color: isActive ? AppColors.accent : AppColors.grey600,
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   Widget _buildHeader(BuildContext context, UserRoleLevel roleLevel, AppUser? user) {
+    final isCollapsed = widget.isCollapsed;
     final isInvestor = roleLevel == UserRoleLevel.investorBasic ||
         roleLevel == UserRoleLevel.investorVerified ||
         roleLevel == UserRoleLevel.investorVip;
@@ -879,47 +938,97 @@ class _SidebarXShellState extends ConsumerState<SidebarXShell> {
         ? user!.displayName!
         : user?.email?.split('@').first ?? DashboardStrings.defaultDisplayName;
 
+    if (isCollapsed) {
+      return Container(
+        width: double.infinity,
+        color: AppColors.primaryDark,
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              const SizedBox(height: AppSpacing.md),
+              Center(
+                child: _SidebarXAvatar(
+                  user: user,
+                  roleLevel: roleLevel,
+                  onPhotoUpdated: () => setState(() {}),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              _buildToggleButton(),
+              const SizedBox(height: AppSpacing.xs),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.sm),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.sm, AppSpacing.sm),
       color: AppColors.primaryDark,
       child: SafeArea(
         bottom: false,
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _SidebarXAvatar(
-              user: user,
-              roleLevel: roleLevel,
-              onPhotoUpdated: () => setState(() {}),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    displayName,
-                    style: AppTextStyles.titleMedium.copyWith(color: AppColors.white),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+            Row(
+              children: [
+                _SidebarXAvatar(
+                  user: user,
+                  roleLevel: roleLevel,
+                  onPhotoUpdated: () => setState(() {}),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        displayName,
+                        style: AppTextStyles.titleMedium.copyWith(color: AppColors.white),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        RolePermissions.label(roleLevel),
+                        style: AppTextStyles.labelSmall.copyWith(color: AppColors.white.withValues(alpha: 0.8)),
+                      ),
+                      if (isInvestor) ...[
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          _verificationBadgeForLevel(roleLevel),
+                          style: AppTextStyles.labelSmall.copyWith(color: AppColors.white.withValues(alpha: 0.6)),
+                        ),
+                      ],
+                    ],
                   ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    RolePermissions.label(roleLevel),
-                    style: AppTextStyles.labelSmall.copyWith(color: AppColors.white.withValues(alpha: 0.8)),
-                  ),
-                  if (isInvestor) ...[
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      _verificationBadgeForLevel(roleLevel),
-                      style: AppTextStyles.labelSmall.copyWith(color: AppColors.white.withValues(alpha: 0.6)),
-                    ),
-                  ],
-                ],
-              ),
+                ),
+                _buildToggleButton(),
+              ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToggleButton() {
+    final isCollapsed = widget.isCollapsed;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: widget.onToggleCollapsed,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          child: Icon(
+            isCollapsed ? Icons.chevron_right_rounded : Icons.chevron_left_rounded,
+            color: AppColors.white.withValues(alpha: 0.7),
+            size: AppSpacing.iconMd,
+          ),
         ),
       ),
     );
@@ -993,6 +1102,34 @@ class _SidebarXShellState extends ConsumerState<SidebarXShell> {
     final showVdrCta = user != null &&
         (roleLevel == UserRoleLevel.investorBasic || roleLevel == UserRoleLevel.investorVerified) &&
         !RolePermissions.canAccessVdr(roleLevel);
+    final isCollapsed = widget.isCollapsed;
+
+    if (isCollapsed) {
+      return Container(
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: AppColors.borderLight, width: 1)),
+        ),
+        child: Tooltip(
+          message: 'Wyloguj',
+          preferBelow: false,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () async {
+                await auth.signOut();
+                if (!context.mounted) return;
+                context.go(AppRouter.home);
+              },
+              child: Container(
+                height: 48,
+                alignment: Alignment.center,
+                child: const Icon(AppIcons.logout, color: AppColors.error, size: AppSpacing.iconSm),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
 
     return Column(
       mainAxisSize: MainAxisSize.min,

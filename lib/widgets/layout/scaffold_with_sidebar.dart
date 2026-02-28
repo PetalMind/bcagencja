@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/auth/role_permissions.dart';
+import '../../core/state/providers/auth_provider.dart';
 import '../../core/theme/app_spacing.dart';
+import '../navigation/mobile_menu.dart';
 import '../navigation/sidebar_x.dart';
 
 /// Udostępnia callback do otwarcia drawera z sidebarem (np. z AppBar).
@@ -23,7 +27,7 @@ class SidebarShellScope extends InheritedWidget {
 
 /// Shell layout: na desktopie stały sidebar, na mobile/tablet drawer.
 /// Używany przez ShellRoute – wszystkie widoki oprócz logowania.
-class ScaffoldWithSidebar extends StatefulWidget {
+class ScaffoldWithSidebar extends ConsumerStatefulWidget {
   const ScaffoldWithSidebar({
     super.key,
     required this.child,
@@ -34,11 +38,12 @@ class ScaffoldWithSidebar extends StatefulWidget {
   final String? currentRoute;
 
   @override
-  State<ScaffoldWithSidebar> createState() => _ScaffoldWithSidebarState();
+  ConsumerState<ScaffoldWithSidebar> createState() => _ScaffoldWithSidebarState();
 }
 
-class _ScaffoldWithSidebarState extends State<ScaffoldWithSidebar> {
+class _ScaffoldWithSidebarState extends ConsumerState<ScaffoldWithSidebar> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _isCollapsed = false;
 
   void _openDrawer() {
     _scaffoldKey.currentState?.openDrawer();
@@ -49,13 +54,27 @@ class _ScaffoldWithSidebarState extends State<ScaffoldWithSidebar> {
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isDesktop = screenWidth >= AppSpacing.tabletBreakpoint;
 
+    final user = ref.watch(currentUserProvider).asData?.value;
+    final roleLevel = user?.effectiveRoleLevel ?? UserRoleLevel.guest;
+    final hasSidebar = roleLevel != UserRoleLevel.guest;
+
     if (isDesktop) {
       return SidebarShellScope(
-        openDrawer: () {}, // desktop: sidebar zawsze widoczny, brak drawera
+        openDrawer: () {},
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SidebarXShell(currentRoute: widget.currentRoute),
+            if (hasSidebar)
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeInOut,
+                width: _isCollapsed ? 64 : 280,
+                child: SidebarXShell(
+                  currentRoute: widget.currentRoute,
+                  isCollapsed: _isCollapsed,
+                  onToggleCollapsed: () => setState(() => _isCollapsed = !_isCollapsed),
+                ),
+              ),
             Expanded(child: widget.child),
           ],
         ),
@@ -66,7 +85,7 @@ class _ScaffoldWithSidebarState extends State<ScaffoldWithSidebar> {
       openDrawer: _openDrawer,
       child: Scaffold(
         key: _scaffoldKey,
-        drawer: SidebarXShell(currentRoute: widget.currentRoute),
+        drawer: hasSidebar ? const MobileMenu() : null,
         body: widget.child,
       ),
     );

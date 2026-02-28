@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/constants/listing_options.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -14,6 +15,8 @@ class PropertyAmenities extends StatelessWidget {
   });
 
   static const Map<String, String> _categoryLabels = {
+    'designation': 'Przeznaczenie',
+    'additional': 'Informacje dodatkowe',
     'security': 'Bezpieczeństwo',
     'infrastructure': 'Infrastruktura',
     'office': 'Biuro i usługi',
@@ -37,6 +40,24 @@ class PropertyAmenities extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final features = <Map<String, dynamic>>[];
+
+    // Add designation (Przeznaczenie lokalu)
+    for (final key in property.designation) {
+      features.add({
+        'icon': Icons.storefront_rounded,
+        'label': DesignationOptions.label(key),
+        'category': 'designation',
+      });
+    }
+
+    // Add additional info (klucze z AdditionalInfoOptions)
+    for (final key in property.additionalInfo) {
+      features.add({
+        'icon': Icons.check_circle_outline_rounded,
+        'label': AdditionalInfoOptions.label(key),
+        'category': 'additional',
+      });
+    }
 
     // Add features from property.features list
     final featureIconMap = {
@@ -86,24 +107,25 @@ class PropertyAmenities extends StatelessWidget {
       features.add({
         'icon': featureIconMap[feature] ?? Icons.check_circle_rounded,
         'label': feature,
+        'category': _categoryFor(feature),
       });
     }
     
     // Add boolean features
     if (property.hasLoadingDock) {
-      features.add({'icon': AppIcons.loadingDock, 'label': 'Dok załadunkowy'});
+      features.add({'icon': AppIcons.loadingDock, 'label': 'Dok załadunkowy', 'category': 'infrastructure'});
     }
     if (property.hasParking) {
-      features.add({'icon': AppIcons.parking, 'label': 'Parking'});
+      features.add({'icon': AppIcons.parking, 'label': 'Parking', 'category': 'infrastructure'});
     }
     if (property.hasElevator) {
-      features.add({'icon': AppIcons.elevator, 'label': 'Winda'});
+      features.add({'icon': AppIcons.elevator, 'label': 'Winda', 'category': 'infrastructure'});
     }
     if (property.hasSecurity) {
-      features.add({'icon': AppIcons.security, 'label': 'Ochrona 24h'});
+      features.add({'icon': AppIcons.security, 'label': 'Ochrona 24h', 'category': 'security'});
     }
     if (property.hasReception) {
-      features.add({'icon': AppIcons.reception, 'label': 'Recepcja'});
+      features.add({'icon': AppIcons.reception, 'label': 'Recepcja', 'category': 'office'});
     }
     
     if (features.isEmpty) {
@@ -112,11 +134,10 @@ class PropertyAmenities extends StatelessWidget {
 
     final grouped = <String, List<Map<String, dynamic>>>{};
     for (final f in features) {
-      final label = f['label'] as String;
-      final cat = _categoryFor(label);
+      final cat = f['category'] as String? ?? _categoryFor(f['label'] as String);
       grouped.putIfAbsent(cat, () => []).add(f);
     }
-    final order = ['security', 'infrastructure', 'office', 'terrain', 'other'];
+    final order = ['designation', 'additional', 'security', 'infrastructure', 'office', 'terrain', 'other'];
     final orderedCategories = order.where((c) => grouped.containsKey(c)).toList();
 
     final screenWidth = MediaQuery.of(context).size.width;

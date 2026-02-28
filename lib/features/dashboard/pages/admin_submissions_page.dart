@@ -10,6 +10,7 @@ import '../../../core/services/admin_service.dart';
 import '../../../core/router/app_router.dart';
 import '../widgets/dashboard_scaffold.dart';
 import '../widgets/empty_state.dart';
+import '../../../widgets/common/app_data_grid.dart';
 
 final _submissionServiceProvider = Provider<ListingSubmissionService>((ref) => ListingSubmissionService());
 final _adminServiceProvider = Provider<AdminService>((ref) => AdminService());
@@ -148,83 +149,93 @@ class _AdminSubmissionsPageState extends ConsumerState<AdminSubmissionsPage> {
   }
 
   Widget _buildDesktopTable(List<ListingSubmissionRecord> list, Map<String, String> agentsMap) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        columns: const [
-          DataColumn(label: Text('Nr ref.')),
-          DataColumn(label: Text('Data')),
-          DataColumn(label: Text('Typ')),
-          DataColumn(label: Text('Lokalizacja')),
-          DataColumn(label: Text('Pow. / Cena')),
-          DataColumn(label: Text('Kontakt')),
-          DataColumn(label: Text('Status')),
-          DataColumn(label: Text('Przypisany do')),
-          DataColumn(label: Text('Akcje')),
-        ],
-        rows: list.map((r) => _buildTableRow(r, agentsMap)).toList(),
-      ),
+    return AppDataGrid(
+      allowSorting: true,
+      allowColumnsResizing: true,
+      showPagination: list.length > 20,
+      pageSize: 20,
+      columns: const [
+        AppDataGridColumn(name: 'ref', label: 'Nr ref.', width: 110),
+        AppDataGridColumn(name: 'date', label: 'Data', width: 90),
+        AppDataGridColumn(name: 'type', label: 'Typ', width: 100),
+        AppDataGridColumn(name: 'location', label: 'Lokalizacja', minimumWidth: 130),
+        AppDataGridColumn(name: 'areaPrice', label: 'Pow. / Cena', width: 130),
+        AppDataGridColumn(name: 'contact', label: 'Kontakt', minimumWidth: 160),
+        AppDataGridColumn(name: 'status', label: 'Status', width: 110),
+        AppDataGridColumn(name: 'agent', label: 'Przypisany do', minimumWidth: 130),
+        AppDataGridColumn(name: 'actions', label: 'Akcje', width: 270, sortable: false),
+      ],
+      sortValues: list.map((r) {
+        final loc = '${r.city ?? ''}${r.voivodeship != null ? ', ${r.voivodeship}' : ''}'.trim();
+        return [
+          r.referenceNumber,
+          r.createdAt?.millisecondsSinceEpoch ?? 0,
+          r.typeShortLabel,
+          loc,
+          r.expectedPrice ?? 0.0,
+          r.contactName ?? '',
+          r.statusLabel,
+          r.assignedToAgentId != null ? (agentsMap[r.assignedToAgentId] ?? '') : '',
+          0,
+        ];
+      }).toList(),
+      rows: list.map((r) => _buildTableRowWidgets(r, agentsMap)).toList(),
     );
   }
 
-  DataRow _buildTableRow(ListingSubmissionRecord r, Map<String, String> agentsMap) {
+  List<Widget> _buildTableRowWidgets(ListingSubmissionRecord r, Map<String, String> agentsMap) {
     final loc = '${r.city ?? ''}${r.voivodeship != null ? ', ${r.voivodeship}' : ''}'.trim();
     final areaPrice = [
       if (r.area != null && r.area! > 0) '${r.area!.toStringAsFixed(0)} m²',
       if (r.expectedPrice != null && r.expectedPrice! > 0) _formatPrice(r.expectedPrice!),
     ].join(' / ');
-    return DataRow(
-      cells: [
-        DataCell(Text(r.referenceNumber, style: AppTextStyles.labelSmall)),
-        DataCell(Text(r.createdAt != null
-            ? '${r.createdAt!.day.toString().padLeft(2, '0')}.${r.createdAt!.month.toString().padLeft(2, '0')}.${r.createdAt!.year}'
-            : '—')),
-        DataCell(Text(r.typeShortLabel)),
-        DataCell(Text(loc.isEmpty ? '—' : loc)),
-        DataCell(Text(areaPrice.isEmpty ? '—' : areaPrice)),
-        DataCell(Text('${r.contactName ?? ''} (${r.contactEmail ?? ''})')),
-        DataCell(
-          Chip(
-            label: Text(r.statusLabel, style: AppTextStyles.labelSmall),
-            backgroundColor: _statusColor(r.status).withValues(alpha: 0.2),
+    return [
+      Text(r.referenceNumber, style: AppTextStyles.labelSmall),
+      Text(r.createdAt != null
+          ? '${r.createdAt!.day.toString().padLeft(2, '0')}.${r.createdAt!.month.toString().padLeft(2, '0')}.${r.createdAt!.year}'
+          : '—'),
+      Text(r.typeShortLabel),
+      Text(loc.isEmpty ? '—' : loc, overflow: TextOverflow.ellipsis),
+      Text(areaPrice.isEmpty ? '—' : areaPrice),
+      Text('${r.contactName ?? ''} (${r.contactEmail ?? ''})', overflow: TextOverflow.ellipsis),
+      Chip(
+        label: Text(r.statusLabel, style: AppTextStyles.labelSmall),
+        backgroundColor: _statusColor(r.status).withValues(alpha: 0.2),
+      ),
+      Text(
+        r.assignedToAgentId != null ? (agentsMap[r.assignedToAgentId] ?? r.assignedToAgentId!) : '—',
+        style: AppTextStyles.labelSmall,
+        overflow: TextOverflow.ellipsis,
+      ),
+      Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextButton(
+            onPressed: () => context.push(AppRouter.dashboardAdminSubmissionsPreview, extra: r),
+            child: const Text('Podgląd'),
           ),
-        ),
-        DataCell(Text(
-          r.assignedToAgentId != null
-              ? (agentsMap[r.assignedToAgentId] ?? r.assignedToAgentId!)
-              : '—',
-          style: AppTextStyles.labelSmall,
-        )),
-        DataCell(Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+          if (r.assignedToAgentId != null && r.status != ListingSubmissionService.statusPublished)
             TextButton(
-              onPressed: () => context.push(AppRouter.dashboardAdminSubmissionsPreview, extra: r),
-              child: const Text('Podgląd'),
-            ),
-            if (r.assignedToAgentId != null && r.status != ListingSubmissionService.statusPublished)
-              TextButton(
-                onPressed: () => _shareForSale(context, r),
-                child: const Text('Udostępnij do sprzedaży'),
-              )
-            else if (r.assignedToAgentId == null)
-              TextButton(
-                onPressed: () => _showAssignDialog(context, r),
-                child: const Text('Przypisz'),
-              ),
+              onPressed: () => _shareForSale(context, r),
+              child: const Text('Udostępnij'),
+            )
+          else if (r.assignedToAgentId == null)
             TextButton(
-              onPressed: () => _showRejectDialog(context, r),
-              child: const Text('Odrzuć'),
+              onPressed: () => _showAssignDialog(context, r),
+              child: const Text('Przypisz'),
             ),
-            IconButton(
-              icon: const Icon(Icons.email_outlined),
-              onPressed: () => _launchContact(r),
-              tooltip: 'Skontaktuj się',
-            ),
-          ],
-        )),
-      ],
-    );
+          TextButton(
+            onPressed: () => _showRejectDialog(context, r),
+            child: const Text('Odrzuć'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.email_outlined),
+            onPressed: () => _launchContact(r),
+            tooltip: 'Skontaktuj się',
+          ),
+        ],
+      ),
+    ];
   }
 
   String _formatPrice(double v) {

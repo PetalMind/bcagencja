@@ -7,27 +7,26 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/state/models/property_model.dart';
 import '../../../core/state/providers/auth_provider.dart';
+import '../../../core/state/providers/dashboard_providers.dart';
 import '../../../core/state/providers/favorites_provider.dart';
 import '../../../core/state/providers/smart_favorites_provider.dart';
 import '../../../widgets/common/watermarked_image.dart';
 import '../../../widgets/common/save_to_collection_modal.dart';
 
 class SimilarListings extends ConsumerWidget {
-  final String propertyId;
-  
+  final Property property;
+
   const SimilarListings({
     super.key,
-    required this.propertyId,
+    required this.property,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < AppSpacing.mobileBreakpoint;
-    
-    // Mock similar properties
-    final similarProperties = List.generate(4, (i) => Property.mock(i + 10));
-    
+    final similarAsync = ref.watch(similarListingsProvider(property));
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -41,29 +40,112 @@ class SimilarListings extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
-        
-        SizedBox(
-          height: 320,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: EdgeInsets.symmetric(
-              horizontal: isMobile ? AppSpacing.md : 0,
-            ),
-            itemCount: similarProperties.length,
-            itemBuilder: (context, index) {
-              final property = similarProperties[index];
-              return Container(
+        similarAsync.when(
+          data: (similarProperties) {
+            if (similarProperties.isEmpty) {
+              return Padding(
+                padding: EdgeInsets.symmetric(horizontal: isMobile ? AppSpacing.md : 0),
+                child: Text(
+                  'Brak podobnych ofert w tej kategorii.',
+                  style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+                ),
+              );
+            }
+            return SizedBox(
+              height: 320,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: EdgeInsets.symmetric(
+                  horizontal: isMobile ? AppSpacing.md : 0,
+                ),
+                itemCount: similarProperties.length,
+                itemBuilder: (context, index) {
+                  final similarProperty = similarProperties[index];
+                  return Container(
+                    width: 280,
+                    margin: const EdgeInsets.only(right: AppSpacing.md),
+                    child: _SimilarListingCard(property: similarProperty),
+                  );
+                },
+              ),
+            );
+          },
+          loading: () => SizedBox(
+            height: 320,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.symmetric(horizontal: isMobile ? AppSpacing.md : 0),
+              itemCount: 4,
+              itemBuilder: (context, index) => Container(
                 width: 280,
                 margin: const EdgeInsets.only(right: AppSpacing.md),
-                child: _SimilarListingCard(property: property),
-              );
-            },
+                child: _SimilarListingCardShimmer(),
+              ),
+            ),
+          ),
+          error: (err, stack) => Padding(
+            padding: EdgeInsets.symmetric(horizontal: isMobile ? AppSpacing.md : 0),
+            child: Text(
+              'Nie udało się załadować podobnych ofert.',
+              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+            ),
           ),
         ),
       ],
     );
   }
-  
+}
+
+class _SimilarListingCardShimmer extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            height: 180,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: AppColors.grey200,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(AppSpacing.radiusMd),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  height: 20,
+                  width: 100,
+                  color: AppColors.grey200,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Container(
+                  height: 16,
+                  width: double.infinity,
+                  color: AppColors.grey200,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Container(
+                  height: 14,
+                  width: 120,
+                  color: AppColors.grey200,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _SimilarListingCard extends ConsumerWidget {
@@ -102,7 +184,7 @@ class _SimilarListingCard extends ConsumerWidget {
                     color: AppColors.grey200,
                     child: WatermarkedImage(
                       child: Image.network(
-                        property.mainImage ?? property.images.first,
+                        property.mainImage ?? (property.images.isNotEmpty ? property.images.first : ''),
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) => const Icon(
                           AppIcons.image,
@@ -146,16 +228,25 @@ class _SimilarListingCard extends ConsumerWidget {
                   ),
               ],
             ),
-            // Content
+            // Content – teaser-safe: yield/range zamiast ceny absolutnej
             Padding(
               padding: const EdgeInsets.all(AppSpacing.md),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    property.formattedPrice,
-                    style: AppTextStyles.priceMedium,
-                  ),
+                  if (property.teaserPriceDisplay != null)
+                    Text(
+                      property.teaserPriceDisplay!,
+                      style: AppTextStyles.priceMedium,
+                    )
+                  else
+                    Text(
+                      'Zapytaj o cenę',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.textSecondary,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
                     property.title,

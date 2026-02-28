@@ -1,10 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../auth/role_permissions.dart';
 import '../../config/app_config.dart';
 import '../../services/listing_submission_service.dart';
 import '../../services/listings_service.dart';
 import '../../services/recently_viewed_service.dart';
 import '../models/property_model.dart';
 import 'auth_provider.dart';
+import 'favorites_provider.dart';
 
 /// Serwis ofert (listings).
 final listingsServiceProvider = Provider<ListingsService>((ref) => ListingsService());
@@ -15,9 +17,11 @@ final propertyDetailProvider =
   if (id.isEmpty) return Stream.value(null);
   final listService = ref.watch(listingsServiceProvider);
   final subService = ref.watch(listingSubmissionServiceProvider);
-  final ownerId = ref.watch(currentUserProvider).asData?.value?.id;
+  final user = ref.watch(currentUserProvider).asData?.value;
+  final ownerId = user?.id;
+  final isAdmin = RolePermissions.hasAdminDashboard(user?.effectiveRoleLevel ?? UserRoleLevel.guest);
   return listService
-      .streamListingById(id, ownerIdToAllowDraft: ownerId)
+      .streamListingById(id, ownerIdToAllowDraft: ownerId, adminBypass: isAdmin)
       .asyncExpand((p) async* {
         if (p != null) {
           yield p;
@@ -66,6 +70,59 @@ final partnerTopListingsByViewsProvider = Provider<List<Property>>((ref) {
   final sorted = List<Property>.from(list)
     ..sort((a, b) => b.views.compareTo(a.views));
   return sorted.take(10).toList();
+});
+
+/// Zwraca wynik podobieństwa oferty [other] do [current] (0–1; wyższy = bardziej podobna).
+/// Kryteria: ta sama miejscowość, zbliżona cena, zbliżona powierzchnia.
+double _similarityScore(Property current, Property other) {
+  double score = 0.0;
+  int factors = 0;
+
+  final sameCity = (current.city.trim().toLowerCase() == other.city.trim().toLowerCase());
+  score += sameCity ? 0.35 : 0.0;
+  factors++;
+
+  if (current.price > 0) {
+    final priceDiff = (other.price - current.price).abs();
+    final priceScore = 1.0 / (1.0 + (priceDiff / current.price));
+    score += 0.4 * priceScore;
+    factors++;
+  }
+  if (current.area > 0) {
+    final areaDiff = (other.area - current.area).abs();
+    final areaScore = 1.0 / (1.0 + (areaDiff / current.area));
+    score += 0.25 * areaScore;
+    factors++;
+  }
+  return factors > 0 ? score : 0.0;
+}
+
+/// Podobne oferty do danej oferty: ten sam typ, posortowane wg podobieństwa (miasto, cena, powierzchnia).
+/// Pobiera oferty z Firestore, punktuje i zwraca do 4 pozycji.
+final similarListingsProvider = FutureProvider.autoDispose.family<List<Property>, Property>((ref, property) async {
+  final service = ref.watch(listingsServiceProvider);
+  final candidates = await service.getPublishedListingsByType(
+    property.propertyType,
+    excludeId: property.id,
+    limit: 40,
+  );
+  if (candidates.isEmpty) return [];
+  final scored = candidates.map((p) => MapEntry(p, _similarityScore(property, p))).toList();
+  scored.sort((a, b) => b.value.compareTo(a.value));
+  return scored.map((e) => e.key).take(4).toList();
+});
+
+/// Wyróżnione oferty na stronie głównej: promowane first, potem uzupełnienie najnowszymi (max 6).
+final featuredListingsProvider = StreamProvider<List<Property>>((ref) {
+  final service = ref.watch(listingsServiceProvider);
+  const limit = 6;
+  return service.streamPublishedListings(limit: 24).map((list) {
+    final promoted = list.where((p) => p.promoted).take(limit).toList();
+    if (promoted.length >= limit) return promoted;
+    final promotedIds = promoted.map((e) => e.id).toSet();
+    final rest = list.where((p) => !promotedIds.contains(p.id)).take(limit - promoted.length).toList();
+    return [...promoted, ...rest];
+  });
 });
 
 /// Liczba zapisanych wyszukiwań (alertów). Źródło: API.
@@ -159,3 +216,25 @@ final userCriteriaPreviewProvider = Provider<List<String>>((ref) {
   ref.watch(currentUserProvider);
   return [];
 });
+
+const String _dashboardTutorialSeenKey = 'dashboard_tutorial_seen';
+
+/// Czy użytkownik widział już tutorial coach mark na dashboardzie (po pierwszym logowaniu).
+/// Gdy false – pokazujemy tutorial; po zakończeniu/pominięciu zapisujemy true w SharedPreferences.
+final dashboardTutorialSeenProvider =
+    AsyncNotifierProvider<DashboardTutorialSeenNotifier, bool>(DashboardTutorialSeenNotifier.new);
+
+class DashboardTutorialSeenNotifier extends AsyncNotifier<bool> {
+  @override
+  Future<bool> build() async {
+    final prefs = ref.read(sharedPreferencesProvider);
+    if (prefs == null) return true;
+    return prefs.getBool(_dashboardTutorialSeenKey) ?? false;
+  }
+
+  Future<void> markSeen() async {
+    final prefs = ref.read(sharedPreferencesProvider);
+    if (prefs != null) await prefs.setBool(_dashboardTutorialSeenKey, true);
+    state = const AsyncData(true);
+  }
+}

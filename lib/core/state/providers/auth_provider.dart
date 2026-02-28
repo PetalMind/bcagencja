@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import '../../auth/app_user.dart';
 import '../../auth/auth_service.dart';
 import '../../services/submission_document_service.dart';
@@ -12,8 +13,12 @@ final vdrDocumentServiceProvider = Provider<VdrDocumentService>((ref) => VdrDocu
 final submissionDocumentServiceProvider =
     Provider<SubmissionDocumentService>((ref) => SubmissionDocumentService());
 
+/// Komunikat wyświetlany po wylogowaniu z powodu zablokowania konta.
+final blockedMessageProvider = StateProvider<String?>((ref) => null);
+
 /// Aktualny użytkownik aplikacji (null = niezalogowany).
 /// Łączy Firebase Auth z profilem z Firestore (rola, Level 2/3).
+/// Gdy dokument użytkownika nie istnieje (konto usunięte), wylogowuje i zwraca null.
 final currentUserProvider = StreamProvider<AppUser?>((ref) {
   final auth = ref.watch(authServiceProvider);
   return auth.authStateChanges.asyncExpand((User? fbUser) async* {
@@ -29,14 +34,9 @@ final currentUserProvider = StreamProvider<AppUser?>((ref) {
         photoUrl: appUser.photoUrl ?? fbUser.photoURL,
       );
     } else {
-      yield AppUser(
-        id: fbUser.uid,
-        email: fbUser.email,
-        displayName: fbUser.displayName,
-        photoUrl: fbUser.photoURL,
-        role: UserRole.lead,
-        accessLevel: AccessLevel.teaser,
-      );
+      await auth.signOut();
+      yield null;
+      return;
     }
   });
 });

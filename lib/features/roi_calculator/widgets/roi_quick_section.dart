@@ -38,15 +38,29 @@ class _RoiQuickSectionState extends ConsumerState<RoiQuickSection> {
   Timer? _debounce;
   static const _debounceMs = 300;
 
+  final _priceController = TextEditingController();
+  final _rentController = TextEditingController();
+  final _opexController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
+    _syncControllersFromInputs();
     _recalculate();
+  }
+
+  void _syncControllersFromInputs() {
+    _priceController.text = _currencyFormat.format(_inputs.purchasePrice.round());
+    _rentController.text = _currencyFormat.format(_inputs.annualRent.round());
+    _opexController.text = _currencyFormat.format(_inputs.operatingCosts.round());
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
+    _priceController.dispose();
+    _rentController.dispose();
+    _opexController.dispose();
     super.dispose();
   }
 
@@ -63,6 +77,7 @@ class _RoiQuickSectionState extends ConsumerState<RoiQuickSection> {
   void _applyScenario(RoiQuickInputs inputs) {
     setState(() {
       _inputs = inputs;
+      _syncControllersFromInputs();
       _recalculate();
     });
   }
@@ -201,9 +216,9 @@ class _RoiQuickSectionState extends ConsumerState<RoiQuickSection> {
             const SizedBox(height: AppSpacing.lg),
             RoiInputField(
               label: 'Koszty operacyjne (rocznie)',
-              tooltip: 'Podatki, ubezpieczenie, utrzymanie',
+              tooltip: 'Podatki od nieruchomości, ubezpieczenie, zarządzanie, utrzymanie, naprawy, opłaty wspólne',
               child: _buildCurrencyTextField(
-                value: _inputs.operatingCosts,
+                controller: _opexController,
                 onChanged: (v) {
                   setState(() {
                     _inputs = _inputs.copyWith(operatingCosts: v);
@@ -332,7 +347,7 @@ class _RoiQuickSectionState extends ConsumerState<RoiQuickSection> {
       child: Column(
         children: [
           _buildCurrencyTextField(
-            value: _inputs.purchasePrice,
+            controller: _priceController,
             onChanged: (v) {
               setState(() {
                 _inputs = _inputs.copyWith(purchasePrice: v);
@@ -351,6 +366,7 @@ class _RoiQuickSectionState extends ConsumerState<RoiQuickSection> {
             onChanged: (v) {
               setState(() {
                 _inputs = _inputs.copyWith(purchasePrice: v);
+                _priceController.text = _currencyFormat.format(v.round());
                 _recalculate();
               });
             },
@@ -366,7 +382,7 @@ class _RoiQuickSectionState extends ConsumerState<RoiQuickSection> {
       child: Column(
         children: [
           _buildCurrencyTextField(
-            value: _inputs.annualRent,
+            controller: _rentController,
             onChanged: (v) {
               setState(() {
                 _inputs = _inputs.copyWith(annualRent: v);
@@ -385,6 +401,7 @@ class _RoiQuickSectionState extends ConsumerState<RoiQuickSection> {
             onChanged: (v) {
               setState(() {
                 _inputs = _inputs.copyWith(annualRent: v);
+                _rentController.text = _currencyFormat.format(v.round());
                 _recalculate();
               });
             },
@@ -395,26 +412,24 @@ class _RoiQuickSectionState extends ConsumerState<RoiQuickSection> {
   }
 
   Widget _buildCurrencyTextField({
-    required double value,
+    required TextEditingController controller,
     required ValueChanged<double> onChanged,
     required double min,
     required double max,
   }) {
-    final str = _currencyFormat.format(value.round());
     return TextFormField(
-      key: ValueKey(value.round()),
-      initialValue: str,
-      decoration: InputDecoration(
+      controller: controller,
+      decoration: const InputDecoration(
         suffixText: 'PLN',
-        border: const OutlineInputBorder(),
+        border: OutlineInputBorder(),
         filled: true,
       ),
       keyboardType: TextInputType.number,
       inputFormatters: [
-        FilteringTextInputFormatter.allow(RegExp(r'[\d\s]')),
+        FilteringTextInputFormatter.allow(RegExp(r'[\d\s\u00A0]')),
       ],
       onChanged: (s) {
-        final cleaned = s.replaceAll(' ', '');
+        final cleaned = s.replaceAll(RegExp(r'[\s\u00A0]'), '');
         final v = double.tryParse(cleaned);
         if (v != null) {
           final clamped = v.clamp(min, max);

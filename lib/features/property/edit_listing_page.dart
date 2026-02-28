@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/auth/role_permissions.dart';
+import '../../core/constants/listing_options.dart';
 import '../../core/state/models/property_model.dart';
 import '../../core/state/providers/auth_provider.dart';
 import '../../core/state/providers/dashboard_providers.dart';
@@ -40,6 +41,8 @@ class _EditListingPageState extends ConsumerState<EditListingPage> {
   bool _isSaving = false;
   Property? _property;
   bool _hasEditPermission = false;
+  List<String> _designation = [];
+  List<String> _additionalInfo = [];
 
   @override
   void initState() {
@@ -75,6 +78,8 @@ class _EditListingPageState extends ConsumerState<EditListingPage> {
     _ownerEmailController.text = p.ownerEmail ?? '';
     _tenantController.text = p.tenant ?? '';
     _roiController.text = p.roi != null ? p.roi!.toStringAsFixed(1) : '';
+    _designation = List.from(p.designation);
+    _additionalInfo = List.from(p.additionalInfo);
   }
 
   @override
@@ -147,6 +152,8 @@ class _EditListingPageState extends ConsumerState<EditListingPage> {
       images: p.images,
       mainImage: p.mainImage,
       features: p.features,
+      designation: _designation,
+      additionalInfo: _additionalInfo,
       yearBuilt: p.yearBuilt,
       condition: p.condition,
       buildingClass: p.buildingClass,
@@ -304,10 +311,64 @@ class _EditListingPageState extends ConsumerState<EditListingPage> {
                       keyboardType: TextInputType.emailAddress,
                     ),
                   ]),
-                  if (property.propertyType != 'land')
+                  if (property.propertyType != 'land') ...[
+                    _buildSection('Przeznaczenie i informacje dodatkowe', [
+                      Text(
+                        'Przeznaczenie lokalu',
+                        style: AppTextStyles.labelLarge.copyWith(color: AppColors.textSecondary),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Wrap(
+                        spacing: AppSpacing.sm,
+                        runSpacing: AppSpacing.sm,
+                        children: DesignationOptions.all.map((key) {
+                          final selected = _designation.contains(key);
+                          return FilterChip(
+                            label: Text(DesignationOptions.label(key)),
+                            selected: selected,
+                            onSelected: (isSelected) {
+                              setState(() {
+                                if (isSelected) {
+                                  _designation = [..._designation, key];
+                                } else {
+                                  _designation = _designation.where((e) => e != key).toList();
+                                }
+                              });
+                            },
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      Text(
+                        'Informacje dodatkowe',
+                        style: AppTextStyles.labelLarge.copyWith(color: AppColors.textSecondary),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Wrap(
+                        spacing: AppSpacing.sm,
+                        runSpacing: AppSpacing.sm,
+                        children: AdditionalInfoOptions.all.map((key) {
+                          final selected = _additionalInfo.contains(key);
+                          return FilterChip(
+                            label: Text(AdditionalInfoOptions.label(key)),
+                            selected: selected,
+                            onSelected: (isSelected) {
+                              setState(() {
+                                if (isSelected) {
+                                  _additionalInfo = [..._additionalInfo, key];
+                                } else {
+                                  _additionalInfo = _additionalInfo.where((e) => e != key).toList();
+                                }
+                              });
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    ]),
                     _buildSection('Najemca (opcjonalnie)', [
                       _textField('Obecny najemca', _tenantController),
                     ]),
+                  ],
                   const SizedBox(height: AppSpacing.xl),
                   FilledButton.icon(
                     onPressed: _isSaving ? null : _save,

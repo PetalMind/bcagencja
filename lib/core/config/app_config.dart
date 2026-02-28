@@ -22,7 +22,7 @@ class AppConfig {
       'https://europe-west1-bc-agencja.cloudfunctions.net/sendRoiCalculationEmail';
   
   // Map configuration
-  static const String googleMapsApiKey = 'YOUR_GOOGLE_MAPS_API_KEY'; // Replace with actual key
+  static const String googleMapsApiKey = 'AIzaSyBJwcVI1wwDvD1ZXRZffldRRAEAE4ih8jI'; // Replace with actual key
   
   // Pagination
   static const int listingsPerPage = 20;
@@ -64,6 +64,18 @@ class AppConfig {
   // Social media (optional)
   static const String facebookUrl = 'https://facebook.com/bcagencja';
   static const String instagramUrl = 'https://instagram.com/bcagencja';
+
+  /// LinkedIn Sign In (OpenID Connect) – Client ID z LinkedIn Developer Portal.
+  /// Primary Client Secret NIE jest tutaj – ustawiasz go tylko w Cloud Function
+  /// (zmienne środowiskowe: LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET).
+  /// Redirect URI w LinkedInzie: {origin}/auth/linkedin-callback
+  static const String linkedInClientId = '77axce1onkni5u';
+  /// Ścieżka callbacku po logowaniu LinkedIn (bez leading slash w konfiguracji LinkedIn).
+  static const String linkedInRedirectPath = '/auth/linkedin-callback';
+  /// Cloud Function: wymiana kodu auth na tokeny LinkedIn i Firebase custom token.
+  /// Np. https://europe-west1-bc-agencja.cloudfunctions.net/linkedinExchangeCode
+  static const String linkedInExchangeCodeUrl =
+      'https://europe-west1-bc-agencja.cloudfunctions.net/linkedinExchangeCode';
   
   // Feature flags
   static const bool enableDarkMode = true;

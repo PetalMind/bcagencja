@@ -103,17 +103,24 @@ class HomeTilesSection extends StatelessWidget {
 
 /// Kafel lead magnet „Chcę sprzedać” – nagłówek pytanie, 3 korzyści, CTA, social proof.
 /// Dla niezalogowanych lub niezweryfikowanych: wyszarzony + overlay z informacją i CTA „Zaloguj się”.
-class _SellPropertyTile extends ConsumerWidget {
+class _SellPropertyTile extends ConsumerStatefulWidget {
   final VoidCallback onTap;
 
   const _SellPropertyTile({required this.onTap});
+
+  @override
+  ConsumerState<_SellPropertyTile> createState() => _SellPropertyTileState();
+}
+
+class _SellPropertyTileState extends ConsumerState<_SellPropertyTile> {
+  bool _hovered = false;
 
   static bool _canAccessSell(AppUser? user) {
     return user != null && user.emailVerified;
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider).asData?.value;
     final canAccess = _canAccessSell(user);
     final isMobile = MediaQuery.of(context).size.width < AppSpacing.mobileBreakpoint;
@@ -182,21 +189,42 @@ class _SellPropertyTile extends ConsumerWidget {
             ),
           );
 
-    return Material(
-      color: AppColors.white,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-      elevation: 2,
-      shadowColor: AppColors.black.withValues(alpha: 0.08),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          InkWell(
-            onTap: canAccess ? onTap : null,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-            child: tileChild,
+    final showHoverBorder = canAccess && _hovered;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+          border: Border.all(
+            color: showHoverBorder ? AppColors.accent.withValues(alpha: 0.6) : Colors.transparent,
+            width: 2,
           ),
-          if (!canAccess) _LockedOverlay(isMobile: isMobile),
-        ],
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.black.withValues(alpha: showHoverBorder ? 0.1 : 0.08),
+              blurRadius: showHoverBorder ? 8 : 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Material(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+          elevation: 0,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              InkWell(
+                onTap: canAccess ? widget.onTap : null,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+                child: tileChild,
+              ),
+              if (!canAccess) _LockedOverlay(isMobile: isMobile),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -300,7 +328,7 @@ class _LockedOverlay extends StatelessWidget {
   }
 }
 
-class _HomeTile extends StatelessWidget {
+class _HomeTile extends StatefulWidget {
   final IconData icon;
   final String title;
   final String subtitle;
@@ -316,70 +344,97 @@ class _HomeTile extends StatelessWidget {
   });
 
   @override
+  State<_HomeTile> createState() => _HomeTileState();
+}
+
+class _HomeTileState extends State<_HomeTile> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < AppSpacing.mobileBreakpoint;
 
-    return Material(
-      color: AppColors.white,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-      elevation: 2,
-      shadowColor: AppColors.black.withValues(alpha: 0.08),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-        child: Padding(
-          padding: EdgeInsets.all(isMobile ? AppSpacing.lg : AppSpacing.xl),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryDark.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                ),
-                child: Icon(
-                  icon,
-                  size: isMobile ? 36 : 44,
-                  color: AppColors.primaryDark,
-                ),
-              ),
-              SizedBox(height: isMobile ? AppSpacing.md : AppSpacing.lg),
-              Text(
-                title,
-                style: AppTextStyles.titleLarge.copyWith(
-                  color: AppColors.primaryDark,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                subtitle,
-                style: AppTextStyles.bodyMedium.copyWith(
-                  color: AppColors.textSecondary,
-                  height: 1.5,
-                ),
-              ),
-              SizedBox(height: isMobile ? AppSpacing.md : AppSpacing.lg),
-              Row(
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+          border: Border.all(
+            color: _hovered ? AppColors.accent.withValues(alpha: 0.6) : Colors.transparent,
+            width: 2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.black.withValues(alpha: _hovered ? 0.1 : 0.08),
+              blurRadius: _hovered ? 8 : 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Material(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+          elevation: 0,
+          child: InkWell(
+            onTap: widget.onTap,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+            child: Padding(
+              padding: EdgeInsets.all(isMobile ? AppSpacing.lg : AppSpacing.xl),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
+                  Container(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryDark.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                    ),
+                    child: Icon(
+                      widget.icon,
+                      size: isMobile ? 36 : 44,
+                      color: AppColors.primaryDark,
+                    ),
+                  ),
+                  SizedBox(height: isMobile ? AppSpacing.md : AppSpacing.lg),
                   Text(
-                    ctaLabel,
-                    style: AppTextStyles.labelLarge.copyWith(
-                      color: AppColors.accent,
+                    widget.title,
+                    style: AppTextStyles.titleLarge.copyWith(
+                      color: AppColors.primaryDark,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.xs),
-                  Icon(
-                    AppIcons.arrowForward,
-                    size: AppSpacing.iconSm,
-                    color: AppColors.accent,
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    widget.subtitle,
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textSecondary,
+                      height: 1.5,
+                    ),
+                  ),
+                  SizedBox(height: isMobile ? AppSpacing.md : AppSpacing.lg),
+                  Row(
+                    children: [
+                      Text(
+                        widget.ctaLabel,
+                        style: AppTextStyles.labelLarge.copyWith(
+                          color: AppColors.accent,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      Icon(
+                        AppIcons.arrowForward,
+                        size: AppSpacing.iconSm,
+                        color: AppColors.accent,
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
+            ),
           ),
         ),
       ),

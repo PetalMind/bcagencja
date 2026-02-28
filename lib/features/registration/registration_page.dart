@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/auth/linkedin_auth.dart';
 import '../../core/state/providers/auth_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
@@ -62,6 +63,14 @@ class _RegistrationPageState extends ConsumerState<RegistrationPage> {
     }
   }
 
+  /// Na web: przekierowanie synchroniczne, żeby LinkedIn otworzył się w tej samej karcie (bez iframe).
+  void _handleLinkedInSignIn() {
+    if (!kIsWeb) return;
+    final url = buildLinkedInAuthUrl(AppRouter.dashboard);
+    if (url == null || url.isEmpty) return;
+    redirectToLinkedIn(url);
+  }
+
   Future<void> _redirectAfterAuth(User? user) async {
     if (!mounted || user == null) return;
     final appUser = await ref.read(authServiceProvider).getAppUser(user.uid, user);
@@ -89,6 +98,7 @@ class _RegistrationPageState extends ConsumerState<RegistrationPage> {
     final isMobile =
         MediaQuery.of(context).size.width < AppSpacing.mobileBreakpoint;
     final showApple = !kIsWeb;
+    final showLinkedIn = kIsWeb;
 
     return Scaffold(
       appBar: const AppBarCustom(showBackButton: true),
@@ -114,7 +124,7 @@ class _RegistrationPageState extends ConsumerState<RegistrationPage> {
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  'Kontynuuj przez Google lub Apple, albo zarejestruj firmę przez NIP.',
+                  'Kontynuuj przez Google, Apple lub LinkedIn, zarejestruj się e-mailem lub firmą (NIP).',
                   style: AppTextStyles.bodyMedium.copyWith(
                     color: AppColors.textSecondary,
                   ),
@@ -163,6 +173,14 @@ class _RegistrationPageState extends ConsumerState<RegistrationPage> {
                   ),
                   const SizedBox(height: AppSpacing.sm),
                 ],
+                if (showLinkedIn) ...[
+                  _AuthButton(
+                    onPressed: _isLoading ? null : _handleLinkedInSignIn,
+                    icon: Icons.work_outline,
+                    label: 'Kontynuuj z LinkedIn',
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                ],
                 const SizedBox(height: AppSpacing.lg),
                 Row(
                   children: [
@@ -181,6 +199,16 @@ class _RegistrationPageState extends ConsumerState<RegistrationPage> {
                   ],
                 ),
                 const SizedBox(height: AppSpacing.lg),
+                OutlinedButton(
+                  onPressed: _isLoading
+                      ? null
+                      : () => context.go(AppRouter.rejestracjaEmail),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                  ),
+                  child: const Text('Zarejestruj się e-mailem'),
+                ),
+                const SizedBox(height: AppSpacing.sm),
                 OutlinedButton(
                   onPressed: _isLoading
                       ? null

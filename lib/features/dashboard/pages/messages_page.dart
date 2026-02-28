@@ -13,22 +13,25 @@ class MessagesPage extends StatelessWidget {
 
   static const List<_Conversation> _mockConversations = [
     _Conversation(
-      name: 'Jan Kowalski',
+      name: 'Jan Kowalski (Inwestor)',
       preview: 'Czy nieruchomość przy ul. Marynarskiej jest nadal dostępna?',
       date: 'Dzisiaj, 14:32',
       unread: true,
+      senderType: _SenderType.investor,
     ),
     _Conversation(
-      name: 'BC Agencja',
+      name: 'BC Agencja – Powiadomienie systemowe',
       preview: 'Twoje ogłoszenie zostało zatwierdzone i jest widoczne w wyszukiwarce.',
       date: 'Wczoraj',
       unread: false,
+      senderType: _SenderType.system,
     ),
     _Conversation(
-      name: 'Anna Nowak',
+      name: 'Anna Nowak (Potencjalny kupujący)',
       preview: 'Proszę o kontakt w sprawie oferty biurowca w Mokotowie.',
       date: '2 dni temu',
       unread: true,
+      senderType: _SenderType.buyer,
     ),
   ];
 
@@ -49,11 +52,18 @@ class MessagesPage extends StatelessWidget {
               color: AppColors.textSecondary,
             ),
           ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Wiadomości od potencjalnych kupujących, inwestorów zainteresowanych Twoimi ofertami oraz powiadomienia systemowe od BC Agencja.',
+            style: AppTextStyles.bodySmall.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
           const SizedBox(height: AppSpacing.lg),
           if (conversations.isEmpty)
             DashboardEmptyState(
               title: 'Brak wiadomości',
-              subtitle: 'Wiadomości od potencjalnych kupujących i od nas pojawią się tutaj.',
+              subtitle: 'Wiadomości od potencjalnych kupujących, inwestorów i powiadomienia systemowe pojawią się tutaj.',
               actionLabel: 'Przejdź do ogłoszeń',
               icon: AppIcons.message,
               actionIcon: AppIcons.office,
@@ -73,6 +83,7 @@ class MessagesPage extends StatelessWidget {
                   date: c.date,
                   unread: c.unread,
                   isMobile: isMobile,
+                  senderType: c.senderType,
                   onTap: () {},
                 );
               },
@@ -83,17 +94,21 @@ class MessagesPage extends StatelessWidget {
   }
 }
 
+enum _SenderType { investor, buyer, system }
+
 class _Conversation {
   const _Conversation({
     required this.name,
     required this.preview,
     required this.date,
     required this.unread,
+    required this.senderType,
   });
   final String name;
   final String preview;
   final String date;
   final bool unread;
+  final _SenderType senderType;
 }
 
 class _MessageTile extends StatelessWidget {
@@ -104,6 +119,7 @@ class _MessageTile extends StatelessWidget {
     required this.unread,
     required this.isMobile,
     required this.onTap,
+    required this.senderType,
   });
 
   final String name;
@@ -112,6 +128,29 @@ class _MessageTile extends StatelessWidget {
   final bool unread;
   final bool isMobile;
   final VoidCallback onTap;
+  final _SenderType senderType;
+
+  IconData get _avatarIcon {
+    switch (senderType) {
+      case _SenderType.system:
+        return Icons.notifications_rounded;
+      case _SenderType.investor:
+        return Icons.trending_up_rounded;
+      case _SenderType.buyer:
+        return Icons.person_rounded;
+    }
+  }
+
+  Color get _avatarColor {
+    switch (senderType) {
+      case _SenderType.system:
+        return AppColors.primaryDark;
+      case _SenderType.investor:
+        return AppColors.accent;
+      case _SenderType.buyer:
+        return AppColors.accent;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -133,13 +172,15 @@ class _MessageTile extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 24,
-                backgroundColor: AppColors.accent.withValues(alpha: 0.2),
-                child: Text(
-                  name.isNotEmpty ? name[0].toUpperCase() : '?',
-                  style: AppTextStyles.titleMedium.copyWith(
-                    color: AppColors.accent,
-                  ),
-                ),
+                backgroundColor: _avatarColor.withValues(alpha: 0.2),
+                child: senderType == _SenderType.system
+                    ? Icon(_avatarIcon, size: 20, color: _avatarColor)
+                    : Text(
+                        name.isNotEmpty ? name[0].toUpperCase() : '?',
+                        style: AppTextStyles.titleMedium.copyWith(
+                          color: _avatarColor,
+                        ),
+                      ),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(

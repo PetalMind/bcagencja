@@ -8,3 +8,8 @@ typings/
 # Node.js dependency directory
 node_modules/
 *.local
+
+# Pliki z danymi do logowania (LinkedIn, SMTP itd.) – nie commituj
+.env
+.env.*
+config.env

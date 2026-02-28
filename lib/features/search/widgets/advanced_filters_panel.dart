@@ -255,6 +255,73 @@ class _AdvancedFiltersPanelState extends State<AdvancedFiltersPanel> {
                   ),
                 ),
                 
+                // Parametry specjalistyczne
+                FilterAccordion(
+                  title: 'Parametry techniczne',
+                  icon: AppIcons.utilities,
+                  child: Column(
+                    children: [
+                      DropdownButtonFormField<String>(
+                        decoration: const InputDecoration(
+                          labelText: 'Klasa budynku',
+                        ),
+                        value: _filters.buildingClass,
+                        items: const [
+                          DropdownMenuItem(value: null, child: Text('Dowolna')),
+                          DropdownMenuItem(value: 'A+', child: Text('A+')),
+                          DropdownMenuItem(value: 'A', child: Text('A')),
+                          DropdownMenuItem(value: 'B+', child: Text('B+')),
+                          DropdownMenuItem(value: 'B', child: Text('B')),
+                          DropdownMenuItem(value: 'C', child: Text('C')),
+                        ],
+                        onChanged: (value) {
+                          _updateFilters(_filters.copyWith(buildingClass: value));
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      TextField(
+                        decoration: const InputDecoration(
+                          labelText: 'Min. wysokość składowania (m)',
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        onChanged: (v) {
+                          _updateFilters(_filters.copyWith(minCeilingHeight: double.tryParse(v)));
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      TextField(
+                        decoration: const InputDecoration(
+                          labelText: 'Min. nośność posadzki (t/m²)',
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        onChanged: (v) {
+                          _updateFilters(_filters.copyWith(minFloorLoadCapacity: double.tryParse(v)));
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      TextField(
+                        decoration: const InputDecoration(
+                          labelText: 'Min. liczba miejsc parkingowych',
+                        ),
+                        keyboardType: TextInputType.number,
+                        onChanged: (v) {
+                          _updateFilters(_filters.copyWith(minParkingSpaces: int.tryParse(v)));
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      TextField(
+                        decoration: const InputDecoration(
+                          labelText: 'Min. moc przyłączeniowa (kW)',
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        onChanged: (v) {
+                          _updateFilters(_filters.copyWith(minElectricalPower: double.tryParse(v)));
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+
                 // Preferences
                 FilterAccordion(
                   title: 'Preferencje',

@@ -73,6 +73,8 @@ class AppUser {
   final bool emailVerified;
   /// Link do profilu LinkedIn (OAuth).
   final String? linkedInProfileUrl;
+  /// Czy konto jest zablokowane przez administratora.
+  final bool isBlocked;
 
   const AppUser({
     required this.id,
@@ -95,6 +97,7 @@ class AppUser {
     this.budgetMax,
     this.emailVerified = false,
     this.linkedInProfileUrl,
+    this.isBlocked = false,
   });
 
   bool get isGuest => role == UserRole.guest;
@@ -166,6 +169,7 @@ class AppUser {
     int? budgetMax,
     bool? emailVerified,
     String? linkedInProfileUrl,
+    bool? isBlocked,
   }) {
     return AppUser(
       id: id ?? this.id,
@@ -190,6 +194,7 @@ class AppUser {
       budgetMax: budgetMax ?? this.budgetMax,
       emailVerified: emailVerified ?? this.emailVerified,
       linkedInProfileUrl: linkedInProfileUrl ?? this.linkedInProfileUrl,
+      isBlocked: isBlocked ?? this.isBlocked,
     );
   }
 }

@@ -13,6 +13,7 @@ import 'roi_cta_section.dart';
 import 'roi_registration_modal.dart';
 import 'roi_save_to_email_modal.dart';
 import '../../../core/state/providers/auth_provider.dart';
+import '../../../widgets/common/app_data_grid.dart';
 import '../../../core/router/app_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -38,15 +39,35 @@ class _RoiAdvancedSectionState extends ConsumerState<RoiAdvancedSection> {
   Timer? _debounce;
   static const _debounceMs = 300;
 
+  final _priceController = TextEditingController();
+  final _rentController = TextEditingController();
+  final _opexController = TextEditingController();
+  final _acquisitionController = TextEditingController();
+  final _vacancyController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
+    _syncControllers();
     _recalculate();
+  }
+
+  void _syncControllers() {
+    _priceController.text = _currencyFormat.format(_inputs.purchasePrice.round());
+    _rentController.text = _currencyFormat.format(_inputs.annualRent.round());
+    _opexController.text = _currencyFormat.format(_inputs.operatingCosts.round());
+    _acquisitionController.text = _currencyFormat.format(_inputs.acquisitionCosts.round());
+    _vacancyController.text = _currencyFormat.format(_inputs.vacancyRenovation.round());
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
+    _priceController.dispose();
+    _rentController.dispose();
+    _opexController.dispose();
+    _acquisitionController.dispose();
+    _vacancyController.dispose();
     super.dispose();
   }
 
@@ -149,7 +170,7 @@ class _RoiAdvancedSectionState extends ConsumerState<RoiAdvancedSection> {
             RoiInputField(
               label: 'Cena zakupu',
               child: _buildCurrencyField(
-                _inputs.purchasePrice,
+                _priceController,
                 (v) => _updateInputs((i) => i.copyWithAdvanced(purchasePrice: v)),
                 100000,
                 50000000,
@@ -159,7 +180,7 @@ class _RoiAdvancedSectionState extends ConsumerState<RoiAdvancedSection> {
             RoiInputField(
               label: 'Roczny przychód z najmu',
               child: _buildCurrencyField(
-                _inputs.annualRent,
+                _rentController,
                 (v) => _updateInputs((i) => i.copyWithAdvanced(annualRent: v)),
                 0,
                 5000000,
@@ -169,7 +190,7 @@ class _RoiAdvancedSectionState extends ConsumerState<RoiAdvancedSection> {
             RoiInputField(
               label: 'Koszty operacyjne (rocznie)',
               child: _buildCurrencyField(
-                _inputs.operatingCosts,
+                _opexController,
                 (v) => _updateInputs((i) => i.copyWithAdvanced(operatingCosts: v)),
                 0,
                 5000000,
@@ -231,7 +252,7 @@ class _RoiAdvancedSectionState extends ConsumerState<RoiAdvancedSection> {
               label: 'Koszty nabycia (notariusz, podatek)',
               tooltip: 'Zazwyczaj 3–5% ceny zakupu',
               child: _buildCurrencyField(
-                _inputs.acquisitionCosts,
+                _acquisitionController,
                 (v) => _updateInputs((i) => i.copyWithAdvanced(acquisitionCosts: v)),
                 0,
                 2000000,
@@ -241,7 +262,7 @@ class _RoiAdvancedSectionState extends ConsumerState<RoiAdvancedSection> {
             RoiInputField(
               label: 'Pustostan/remont (jednorazowo)',
               child: _buildCurrencyField(
-                _inputs.vacancyRenovation,
+                _vacancyController,
                 (v) => _updateInputs((i) => i.copyWithAdvanced(vacancyRenovation: v)),
                 0,
                 5000000,
@@ -320,15 +341,14 @@ class _RoiAdvancedSectionState extends ConsumerState<RoiAdvancedSection> {
     );
   }
 
-  Widget _buildCurrencyField(double value, ValueChanged<double> onChanged, double min, double max) {
+  Widget _buildCurrencyField(TextEditingController controller, ValueChanged<double> onChanged, double min, double max) {
     return TextFormField(
-      key: ValueKey(value.round()),
-      initialValue: _currencyFormat.format(value.round()),
+      controller: controller,
       decoration: const InputDecoration(suffixText: 'PLN', border: OutlineInputBorder(), filled: true),
       keyboardType: TextInputType.number,
-      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d\s]'))],
+      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d\s\u00A0]'))],
       onChanged: (s) {
-        final v = double.tryParse(s.replaceAll(' ', ''));
+        final v = double.tryParse(s.replaceAll(RegExp(r'[\s\u00A0]'), ''));
         if (v != null) onChanged(v.clamp(min, max));
       },
     );
@@ -466,27 +486,25 @@ class _RoiAdvancedSectionState extends ConsumerState<RoiAdvancedSection> {
   }
 
   Widget _buildYearTable(RoiAdvancedResults adv) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        headingRowColor: WidgetStateProperty.all(AppColors.grey100),
-        columns: const [
-          DataColumn(label: Text('Rok')),
-          DataColumn(label: Text('Czynsz')),
-          DataColumn(label: Text('Koszty')),
-          DataColumn(label: Text('Zysk netto')),
-        ],
-        rows: adv.yearRows.take(10).map((r) {
-          return DataRow(
-            cells: [
-              DataCell(Text('${r.year}')),
-              DataCell(Text(_currencyFormat.format(r.rent.round()))),
-              DataCell(Text(_currencyFormat.format(r.costs.round()))),
-              DataCell(Text(_currencyFormat.format(r.netProfit.round()))),
-            ],
-          );
-        }).toList(),
-      ),
+    return AppDataGrid(
+      columns: const [
+        AppDataGridColumn(name: 'year', label: 'Rok', width: 70),
+        AppDataGridColumn(name: 'rent', label: 'Czynsz', minimumWidth: 120),
+        AppDataGridColumn(name: 'costs', label: 'Koszty', minimumWidth: 120),
+        AppDataGridColumn(name: 'profit', label: 'Zysk netto', minimumWidth: 130),
+      ],
+      rows: adv.yearRows.take(10).map((r) => [
+        Text('${r.year}'),
+        Text(_currencyFormat.format(r.rent.round())),
+        Text(_currencyFormat.format(r.costs.round())),
+        Text(
+          _currencyFormat.format(r.netProfit.round()),
+          style: TextStyle(
+            color: r.netProfit >= 0 ? AppColors.success : AppColors.error,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ]).toList(),
     );
   }
 }

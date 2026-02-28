@@ -87,14 +87,39 @@ class ListingsService {
             .toList());
   }
 
+  /// Pobiera opublikowane oferty tego samego typu (np. do „Podobne oferty”).
+  /// [excludeId] – ID oferty do wykluczenia (bieżąca).
+  /// Wymaga indeksu: status ASC, propertyType ASC, createdAt DESC.
+  Future<List<Property>> getPublishedListingsByType(
+    String propertyType, {
+    String? excludeId,
+    int limit = 40,
+  }) async {
+    var query = _firestore
+        .collection(_listingsCollection)
+        .where('status', isEqualTo: _statusPublished)
+        .where('propertyType', isEqualTo: propertyType)
+        .orderBy('createdAt', descending: true)
+        .limit(limit);
+
+    final snap = await query.get();
+    final list = snap.docs
+        .map((doc) => Property.fromFirestore(doc.id, doc.data()))
+        .whereType<Property>()
+        .where((p) => excludeId == null || p.id != excludeId)
+        .toList();
+    return list;
+  }
+
   /// Stream pojedynczej oferty po ID dokumentu (Firestore).
   /// Zwraca null, jeśli dokument nie istnieje lub nie jest opublikowany.
   /// [ownerIdToAllowDraft] – jeśli podane i oferta ma ownerId == ten ID, zwróć ofertę
   ///   także gdy status != published (właściciel widzi swoje drafty).
-  /// Używane na stronie szczegółów oferty – dane rzeczywiste (views, favorites, createdAt).
+  /// [adminBypass] – gdy true, zwróć ofertę niezależnie od statusu (administrator widzi wszystkie).
   Stream<Property?> streamListingById(
     String id, {
     String? ownerIdToAllowDraft,
+    bool adminBypass = false,
   }) {
     return _firestore
         .collection(_listingsCollection)
@@ -104,6 +129,7 @@ class ListingsService {
           if (!snap.exists) return null;
           final data = snap.data();
           if (data == null) return null;
+          if (adminBypass) return Property.fromFirestore(snap.id, data);
           final status = data['status'] as String?;
           final ownerId = data['ownerId'] as String?;
           final isPublished = status == _statusPublished;

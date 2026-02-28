@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -35,6 +36,40 @@ class _ContactFormState extends State<ContactForm> {
     _emailController.dispose();
     _messageController.dispose();
     super.dispose();
+  }
+
+  static String? _validateName(String? value) {
+    if (value == null || value.trim().isEmpty) return 'Pole wymagane';
+    if (value.trim().length < 2) return 'Podaj co najmniej 2 znaki';
+    if (RegExp(r'[0-9]').hasMatch(value)) return 'Imię i nazwisko nie powinno zawierać cyfr';
+    return null;
+  }
+
+  static String? _validatePhone(String? value) {
+    if (value == null || value.trim().isEmpty) return 'Pole wymagane';
+    final digits = value.replaceAll(RegExp(r'[^\d]'), '');
+    if (digits.length < 9) return 'Numer musi mieć co najmniej 9 cyfr';
+    if (RegExp(r'[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]').hasMatch(value)) {
+      return 'Numer nie może zawierać liter';
+    }
+    return null;
+  }
+
+  static String? _validateEmail(String? value) {
+    if (value == null || value.trim().isEmpty) return 'Pole wymagane';
+    final emailRegex = RegExp(
+      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    );
+    if (!emailRegex.hasMatch(value.trim())) {
+      return 'Nieprawidłowy adres email';
+    }
+    return null;
+  }
+
+  static String? _validateMessage(String? value) {
+    if (value == null || value.trim().isEmpty) return 'Pole wymagane';
+    if (value.trim().length < 10) return 'Wiadomość musi mieć co najmniej 10 znaków';
+    return null;
   }
 
   void _submitForm() {
@@ -117,12 +152,7 @@ class _ContactFormState extends State<ContactForm> {
               labelText: 'Imię i nazwisko',
               hintText: 'Jan Kowalski',
             ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Pole wymagane';
-              }
-              return null;
-            },
+            validator: _validateName,
           ),
           SizedBox(height: padding),
           
@@ -133,12 +163,10 @@ class _ContactFormState extends State<ContactForm> {
               hintText: '+48 123 456 789',
             ),
             keyboardType: TextInputType.phone,
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Pole wymagane';
-              }
-              return null;
-            },
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[\d\s+\-\(\)]')),
+            ],
+            validator: _validatePhone,
           ),
           SizedBox(height: padding),
           
@@ -149,15 +177,7 @@ class _ContactFormState extends State<ContactForm> {
               hintText: 'email@example.com',
             ),
             keyboardType: TextInputType.emailAddress,
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Pole wymagane';
-              }
-              if (!value.contains('@')) {
-                return 'Nieprawidłowy adres email';
-              }
-              return null;
-            },
+            validator: _validateEmail,
           ),
           SizedBox(height: padding),
           
@@ -168,12 +188,7 @@ class _ContactFormState extends State<ContactForm> {
               hintText: 'Jestem zainteresowany ofertą...',
             ),
             maxLines: 3,
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Pole wymagane';
-              }
-              return null;
-            },
+            validator: _validateMessage,
           ),
           SizedBox(height: padding),
           

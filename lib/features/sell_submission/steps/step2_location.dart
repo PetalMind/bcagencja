@@ -10,7 +10,7 @@ import '../../../core/services/google_places_service.dart';
 import '../input_formatters.dart';
 import '../listing_submission_model.dart';
 
-/// Krok 2: Lokalizacja – pola adresowe (ulica, numer domu, lokalu, kod, miejscowość) + autocomplete + "Użyj mojej lokalizacji".
+/// Krok 2: Lokalizacja – sekcje (Szybki sposób / Szczegóły / Prywatność), naturalna kolejność pól, checkbox hideExactAddress.
 class Step2Location extends StatefulWidget {
   final ListingSubmissionData formData;
   final ValueChanged<ListingSubmissionData> onDataChanged;
@@ -138,6 +138,7 @@ class _Step2LocationState extends State<Step2Location> {
     setState(() => _isLoadingDetails = false);
     if (details == null) return;
     _applyPlaceDetails(details);
+    setState(() {});
     widget.onAddressSelected?.call();
   }
 
@@ -178,13 +179,17 @@ class _Step2LocationState extends State<Step2Location> {
         }
       }
 
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-        errorMessage = 'Brak dostępu do lokalizacji. Wpisz adres ręcznie lub zezwól w ustawieniach.';
-        return;
+      // Na web pomijamy checkPermission/requestPermission – przeglądarka pokazuje
+      // własny dialog przy getCurrentPosition(). Flow permission na web bywa zawodny.
+      if (!kIsWeb) {
+        LocationPermission permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied) {
+          permission = await Geolocator.requestPermission();
+        }
+        if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+          errorMessage = 'Brak dostępu do lokalizacji. Wpisz adres ręcznie lub zezwól w ustawieniach.';
+          return;
+        }
       }
 
       final position = await Geolocator.getCurrentPosition(
@@ -215,6 +220,7 @@ class _Step2LocationState extends State<Step2Location> {
       }
 
       _applyPlaceDetails(details);
+      if (mounted) setState(() {});
       widget.onAddressSelected?.call();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -257,182 +263,254 @@ class _Step2LocationState extends State<Step2Location> {
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                'Wypełnij adres (pola podstawowe są obowiązkowe). Możesz użyć autouzupełniania lub swojej lokalizacji.',
+                'Dokładny adres potrzebny jest tylko do weryfikacji i dopasowania oferty do regionu. Na portalu pokazujemy tylko rejon.',
                 style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
               ),
               const SizedBox(height: AppSpacing.xl),
-              OutlinedButton.icon(
-                onPressed: widget.readOnly || _isResolvingLocation ? null : _useMyLocation,
-                icon: _isResolvingLocation
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.my_location_rounded),
-                label: const Text('Użyj mojej lokalizacji'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md, horizontal: AppSpacing.lg),
+              // --- Sekcja: Szybki sposób ---
+              Card(
+                elevation: 0,
+                color: AppColors.grey50,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMd)),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Szybki sposób',
+                        style: AppTextStyles.labelLarge.copyWith(color: AppColors.primaryDark),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      OutlinedButton.icon(
+                        onPressed: widget.readOnly || _isResolvingLocation ? null : _useMyLocation,
+                        icon: _isResolvingLocation
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.my_location_rounded),
+                        label: const Text('Użyj mojej lokalizacji'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md, horizontal: AppSpacing.lg),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Text(
+                        'lub wyszukaj adres:',
+                        style: AppTextStyles.labelMedium.copyWith(color: AppColors.textSecondary),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      CompositedTransformTarget(
+                        link: _layerLink,
+                        child: TextFormField(
+                          controller: _autocompleteController,
+                          readOnly: widget.readOnly,
+                          onChanged: widget.readOnly ? null : _onAutocompleteTextChanged,
+                          onTap: widget.readOnly ? null : () {
+                            if (_predictions.isNotEmpty) setState(() => _showOverlay = true);
+                          },
+                          decoration: InputDecoration(
+                            hintText: 'np. Poznań, ul. Półwiejska 1',
+                            prefixIcon: _isLoadingDetails
+                                ? const Padding(
+                                    padding: EdgeInsets.all(12),
+                                    child: SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    ),
+                                  )
+                                : const Icon(Icons.search),
+                            border: const OutlineInputBorder(),
+                            filled: true,
+                            fillColor: AppColors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                'LUB wyszukaj adres (autouzupełnianie):',
-                style: AppTextStyles.labelMedium.copyWith(color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              CompositedTransformTarget(
-                link: _layerLink,
-                child: TextFormField(
-                  controller: _autocompleteController,
-                  readOnly: widget.readOnly,
-                  onChanged: widget.readOnly ? null : _onAutocompleteTextChanged,
-                  onTap: widget.readOnly ? null : () {
-                    if (_predictions.isNotEmpty) setState(() => _showOverlay = true);
-                  },
-                  decoration: InputDecoration(
-                    hintText: 'np. Poznań, ul. Półwiejska 1',
-                    prefixIcon: _isLoadingDetails
-                        ? const Padding(
-                            padding: EdgeInsets.all(12),
-                            child: SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+              const SizedBox(height: AppSpacing.xl),
+              // --- Sekcja: Szczegóły adresu (naturalna kolejność) ---
+              Card(
+                elevation: 0,
+                color: AppColors.grey50,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMd)),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Szczegóły adresu (do weryfikacji)',
+                        style: AppTextStyles.labelLarge.copyWith(color: AppColors.primaryDark),
+                      ),
+                      Text(
+                        'Zweryfikuj lub uzupełnij pola oznaczone gwiazdką (*)',
+                        style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      // Miejscowość (na początku – naturalny flow)
+                      TextFormField(
+                        controller: _localityController,
+                        readOnly: widget.readOnly,
+                        onChanged: (_) => _syncToFormData(),
+                        maxLength: kMaxLocalityLength,
+                        textCapitalization: TextCapitalization.characters,
+                        style: const TextStyle(fontFamily: 'monospace'),
+                        decoration: const InputDecoration(
+                          labelText: 'Miejscowość *',
+                          hintText: 'WIELKIMI LITERAMI (standard Poczty Polskiej)',
+                          counterText: '',
+                          prefixIcon: Icon(Icons.location_city_outlined),
+                          border: OutlineInputBorder(),
+                          filled: true,
+                          fillColor: AppColors.white,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      TextFormField(
+                        controller: _postalCodeController,
+                        readOnly: widget.readOnly,
+                        onChanged: (_) => _syncToFormData(),
+                        maxLength: kPostalCodeLength,
+                        inputFormatters: [postalCodeInputFormatter, LengthLimitingTextInputFormatter(kPostalCodeLength)],
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Kod pocztowy *',
+                          hintText: 'XX-XXX',
+                          counterText: '',
+                          prefixIcon: Icon(Icons.markunread_mailbox_outlined),
+                          border: OutlineInputBorder(),
+                          filled: true,
+                          fillColor: AppColors.white,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      TextFormField(
+                        controller: _streetController,
+                        readOnly: widget.readOnly,
+                        onChanged: (_) => _syncToFormData(),
+                        maxLength: kMaxStreetLength,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: const InputDecoration(
+                          labelText: 'Ulica *',
+                          hintText: 'np. ul. Piotrkowska',
+                          counterText: '',
+                          prefixIcon: Icon(Icons.signpost_outlined),
+                          border: OutlineInputBorder(),
+                          filled: true,
+                          fillColor: AppColors.white,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: TextFormField(
+                              controller: _buildingNumberController,
+                              readOnly: widget.readOnly,
+                              onChanged: (_) => _syncToFormData(),
+                              maxLength: kMaxBuildingNumberLength,
+                              decoration: const InputDecoration(
+                                labelText: 'Numer domu *',
+                                hintText: 'np. 15',
+                                counterText: '',
+                                prefixIcon: Icon(Icons.numbers),
+                                border: OutlineInputBorder(),
+                                filled: true,
+                                fillColor: AppColors.white,
+                              ),
                             ),
-                          )
-                        : const Icon(Icons.search),
-                    border: const OutlineInputBorder(),
-                    filled: true,
-                    fillColor: AppColors.white,
+                          ),
+                          const SizedBox(width: AppSpacing.md),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _apartmentNumberController,
+                              readOnly: widget.readOnly,
+                              onChanged: (_) => _syncToFormData(),
+                              maxLength: kMaxApartmentNumberLength,
+                              decoration: const InputDecoration(
+                                labelText: 'Nr lokalu',
+                                hintText: 'opcjonalnie',
+                                counterText: '',
+                                prefixIcon: Icon(Icons.apartment),
+                                border: OutlineInputBorder(),
+                                filled: true,
+                                fillColor: AppColors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      DropdownButtonFormField<String>(
+                        key: ValueKey(widget.formData.voivodeship ?? ''),
+                        initialValue: widget.formData.voivodeship != null &&
+                                _voivodeships.contains(widget.formData.voivodeship!.toLowerCase())
+                            ? widget.formData.voivodeship!.toLowerCase()
+                            : null,
+                        decoration: const InputDecoration(
+                          labelText: 'Województwo',
+                          prefixIcon: Icon(Icons.map_outlined),
+                          border: OutlineInputBorder(),
+                          filled: true,
+                          fillColor: AppColors.white,
+                        ),
+                        items: [
+                          const DropdownMenuItem(value: null, child: Text('Wybierz z listy')),
+                          ..._voivodeships.map(
+                            (v) => DropdownMenuItem(
+                              value: v,
+                              child: Text(v[0].toUpperCase() + v.substring(1)),
+                            ),
+                          ),
+                        ],
+                        onChanged: widget.readOnly ? null : (v) {
+                          widget.formData.voivodeship = v;
+                          widget.onDataChanged(widget.formData);
+                          setState(() {});
+                        },
+                      ),
+                    ],
                   ),
                 ),
               ),
               const SizedBox(height: AppSpacing.xl),
-              Text(
-                'Pola podstawowe (obowiązkowe)',
-                style: AppTextStyles.labelLarge.copyWith(color: AppColors.primaryDark),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              TextFormField(
-                controller: _streetController,
-                readOnly: widget.readOnly,
-                onChanged: (_) => _syncToFormData(),
-                maxLength: kMaxStreetLength,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(
-                  labelText: 'Ulica *',
-                  hintText: 'np. ul. Piotrkowska',
-                  counterText: '',
-                  prefixIcon: Icon(Icons.signpost_outlined),
-                  border: OutlineInputBorder(),
-                  filled: true,
-                  fillColor: AppColors.white,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              TextFormField(
-                controller: _buildingNumberController,
-                readOnly: widget.readOnly,
-                onChanged: (_) => _syncToFormData(),
-                maxLength: kMaxBuildingNumberLength,
-                decoration: const InputDecoration(
-                  labelText: 'Numer domu *',
-                  hintText: 'np. 15',
-                  counterText: '',
-                  border: OutlineInputBorder(),
-                  filled: true,
-                  fillColor: AppColors.white,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              TextFormField(
-                controller: _apartmentNumberController,
-                readOnly: widget.readOnly,
-                onChanged: (_) => _syncToFormData(),
-                maxLength: kMaxApartmentNumberLength,
-                decoration: const InputDecoration(
-                  labelText: 'Numer lokalu/mieszkania',
-                  hintText: 'opcjonalnie',
-                  counterText: '',
-                  border: OutlineInputBorder(),
-                  filled: true,
-                  fillColor: AppColors.white,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              TextFormField(
-                controller: _postalCodeController,
-                readOnly: widget.readOnly,
-                onChanged: (_) => _syncToFormData(),
-                maxLength: kPostalCodeLength,
-                inputFormatters: [postalCodeInputFormatter, LengthLimitingTextInputFormatter(kPostalCodeLength)],
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Kod pocztowy *',
-                  hintText: 'XX-XXX',
-                  counterText: '',
-                  border: OutlineInputBorder(),
-                  filled: true,
-                  fillColor: AppColors.white,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              TextFormField(
-                controller: _localityController,
-                readOnly: widget.readOnly,
-                onChanged: (_) => _syncToFormData(),
-                maxLength: kMaxLocalityLength,
-                textCapitalization: TextCapitalization.characters,
-                style: const TextStyle(fontFamily: 'monospace'),
-                decoration: const InputDecoration(
-                  labelText: 'Miejscowość *',
-                  hintText: 'WIELKIMI LITERAMI (standard Poczty Polskiej)',
-                  counterText: '',
-                  border: OutlineInputBorder(),
-                  filled: true,
-                  fillColor: AppColors.white,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              DropdownButtonFormField<String>(
-                value: widget.formData.voivodeship != null &&
-                        _voivodeships.contains(widget.formData.voivodeship!.toLowerCase())
-                    ? widget.formData.voivodeship!.toLowerCase()
-                    : null,
-                decoration: const InputDecoration(
-                  labelText: 'Województwo',
-                  border: OutlineInputBorder(),
-                  filled: true,
-                  fillColor: AppColors.white,
-                ),
-                items: [
-                  const DropdownMenuItem(value: null, child: Text('Wybierz z listy')),
-                  ..._voivodeships.map(
-                    (v) => DropdownMenuItem(
-                      value: v,
-                      child: Text(v[0].toUpperCase() + v.substring(1)),
+              // --- Sekcja: Prywatność ---
+              Card(
+                elevation: 0,
+                color: AppColors.grey50,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMd)),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: CheckboxListTile(
+                    value: widget.formData.hideExactAddress,
+                    onChanged: widget.readOnly
+                        ? null
+                        : (v) {
+                            widget.formData.hideExactAddress = v ?? true;
+                            widget.onDataChanged(widget.formData);
+                            setState(() {});
+                          },
+                    title: Text(
+                      'Nie publikuj dokładnego adresu – pokazuj tylko rejon',
+                      style: AppTextStyles.labelLarge.copyWith(color: AppColors.primaryDark),
                     ),
-                  ),
-                ],
-                onChanged: widget.readOnly ? null : (v) {
-                  widget.formData.voivodeship = v;
-                  widget.onDataChanged(widget.formData);
-                  setState(() {});
-                },
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              Row(
-                children: [
-                  Icon(Icons.lock_outline_rounded, size: 18, color: AppColors.textSecondary),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Text(
-                      'Dokładny adres nie będzie publikowany bez Twojej zgody – pokazujemy tylko rejon',
+                    subtitle: Text(
+                      'Kluczowe dla off-market – adres służy tylko do weryfikacji i dopasowania do regionu.',
                       style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
                     ),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    contentPadding: EdgeInsets.zero,
+                    activeColor: AppColors.accent,
                   ),
-                ],
+                ),
               ),
             ],
           ),

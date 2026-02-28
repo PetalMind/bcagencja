@@ -42,6 +42,30 @@ class AdminService {
     });
   }
 
+  /// Blokuje lub odblokowuje konto użytkownika (pole `blocked` w Firestore).
+  Future<String?> setUserBlocked(String uid, bool blocked) async {
+    try {
+      await _firestore.collection(_usersCollection).doc(uid).update({
+        'blocked': blocked,
+        if (blocked) 'blockedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  /// Usuwa dokument użytkownika z Firestore. Konto Firebase Auth pozostaje (do usunięcia np. przez Cloud Function).
+  Future<String?> deleteUser(String uid) async {
+    try {
+      await _firestore.collection(_usersCollection).doc(uid).delete();
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
   /// Stream logów pobrań dokumentów (dla panelu admina).
   /// Kolekcja document_downloads: userId, listingId, documentId, ip, timestamp.
   Stream<List<AdminLogRecord>> streamDocumentDownloads({int limit = 100}) {
@@ -68,6 +92,43 @@ class AdminService {
             .whereType<Property>()
             .toList());
   }
+
+  /// Usuwa ofertę z Firestore. Zwraca null przy sukcesie, komunikat błędu przy niepowodzeniu.
+  Future<String?> deleteListing(String listingId) async {
+    try {
+      await _firestore.collection(_listingsCollection).doc(listingId).delete();
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  /// Aktualizuje status oferty (published, draft, archived).
+  Future<String?> updateListingStatus(String listingId, String status) async {
+    try {
+      await _firestore.collection(_listingsCollection).doc(listingId).update({
+        'status': status,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  /// Aktualizuje ofertę – pełna aktualizacja (np. przez admina).
+  Future<String?> updateListing(Property property) async {
+    try {
+      final data = property.toFirestoreUpdate();
+      await _firestore
+          .collection(_listingsCollection)
+          .doc(property.id)
+          .update(data);
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
 }
 
 /// Rekord użytkownika w panelu admina.
@@ -85,6 +146,10 @@ class AdminUserRecord {
   final String accessLevel;
   /// Identyfikatory ofert, do których użytkownik ma dostęp VDR (Grant Level 3).
   final List<String> vdrAccessForListingIds;
+  /// Czy konto jest zablokowane.
+  final bool blocked;
+  /// Data zablokowania.
+  final DateTime? blockedAt;
 
   AdminUserRecord({
     required this.id,
@@ -96,11 +161,14 @@ class AdminUserRecord {
     this.ndaAcceptedAt,
     this.accessLevel = 'teaser',
     this.vdrAccessForListingIds = const [],
+    this.blocked = false,
+    this.blockedAt,
   });
 
   static AdminUserRecord fromFirestore(String id, Map<String, dynamic> data) {
     final createdAt = data['createdAt'];
     final ndaAcceptedAt = data['ndaAcceptedAt'];
+    final blockedAt = data['blockedAt'];
     final vdrList = data['vdrAccessForListingIds'];
     return AdminUserRecord(
       id: id,
@@ -114,6 +182,8 @@ class AdminUserRecord {
       vdrAccessForListingIds: vdrList is List
           ? List<String>.from(vdrList.map((e) => e.toString()))
           : const [],
+      blocked: data['blocked'] as bool? ?? false,
+      blockedAt: blockedAt is Timestamp ? blockedAt.toDate() : null,
     );
   }
 

@@ -7,6 +7,7 @@ import '../../../core/services/admin_service.dart';
 import '../../../core/router/app_router.dart';
 import '../widgets/dashboard_scaffold.dart';
 import '../widgets/empty_state.dart';
+import '../../../widgets/common/app_data_grid.dart';
 
 final _adminServiceProvider = Provider<AdminService>((ref) => AdminService());
 
@@ -100,26 +101,32 @@ class AdminLogsPage extends ConsumerWidget {
   }
 
   Widget _buildDesktopTable(List<AdminLogRecord> list) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        columns: const [
-          DataColumn(label: Text('Data')),
-          DataColumn(label: Text('Użytkownik')),
-          DataColumn(label: Text('Oferta')),
-          DataColumn(label: Text('Dokument')),
-          DataColumn(label: Text('IP')),
-        ],
-        rows: list.map((r) => DataRow(
-          cells: [
-            DataCell(Text(r.timestamp != null ? _formatDateTime(r.timestamp!) : '—')),
-            DataCell(Text(r.userId ?? '—')),
-            DataCell(Text(r.listingId ?? '—')),
-            DataCell(Text(r.documentId ?? '—')),
-            DataCell(Text(r.ipAddress ?? '—')),
-          ],
-        )).toList(),
-      ),
+    return AppDataGrid(
+      allowSorting: true,
+      allowColumnsResizing: true,
+      showPagination: list.length > 25,
+      pageSize: 25,
+      columns: const [
+        AppDataGridColumn(name: 'date', label: 'Data', width: 150),
+        AppDataGridColumn(name: 'user', label: 'Użytkownik', minimumWidth: 180),
+        AppDataGridColumn(name: 'listing', label: 'Oferta', minimumWidth: 140),
+        AppDataGridColumn(name: 'document', label: 'Dokument', minimumWidth: 140),
+        AppDataGridColumn(name: 'ip', label: 'IP', width: 130),
+      ],
+      sortValues: list.map((r) => [
+        r.timestamp?.millisecondsSinceEpoch ?? 0,
+        r.userId ?? '',
+        r.listingId ?? '',
+        r.documentId ?? '',
+        r.ipAddress ?? '',
+      ]).toList(),
+      rows: list.map((r) => [
+        Text(r.timestamp != null ? _formatDateTime(r.timestamp!) : '—'),
+        Text(r.userId ?? '—', overflow: TextOverflow.ellipsis),
+        Text(r.listingId ?? '—', overflow: TextOverflow.ellipsis),
+        Text(r.documentId ?? '—', overflow: TextOverflow.ellipsis),
+        Text(r.ipAddress ?? '—'),
+      ]).toList(),
     );
   }
 

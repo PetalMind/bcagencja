@@ -2,7 +2,33 @@
  * Cloud Functions dla BC Agencja.
  * - searchNip: proxy do API WL (wl-api.mf.gov.pl) – unika CORS na web.
  * - getDocumentWithWatermark: pobranie PDF z VDR z dynamicznym znakiem wodnym (kto, data, IP).
+ * - linkedinExchangeCode: wymiana kodu OAuth LinkedIn (OpenID Connect) na Firebase custom token.
+ *
+ * Zmienne środowiskowe (LinkedIn, Gmail itd.): ustaw w Google Cloud Console dla produkcji
+ * lub w pliku functions/.env / functions/config.env przy lokalnym uruchomieniu (emulator).
  */
+
+// W Cloud Run (produkcja) zmienne ustawia gcloud/Console – nie ładuj pliku (unika problemów ze startem).
+if (!process.env.K_SERVICE) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const path = require("path");
+  const fs = require("fs");
+  const loadEnv = require("dotenv").config;
+  const possiblePaths = [
+    path.join(process.cwd(), "functions", "config.env"),
+    path.join(process.cwd(), "functions", ".env"),
+    path.join(process.cwd(), "config.env"),
+    path.join(process.cwd(), ".env"),
+    path.join(__dirname, "..", "config.env"),
+    path.join(__dirname, "..", ".env"),
+  ];
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      loadEnv({ path: p });
+      break;
+    }
+  }
+}
 
 import * as admin from "firebase-admin";
 import { setGlobalOptions } from "firebase-functions";
@@ -178,6 +204,181 @@ export const sendRoiCalculationEmail = onRequest(
         JSON.stringify({ error: "Błąd wysyłania e-mail" })
       );
     }
+  }
+);
+
+/**
+ * LinkedIn OAuth (OpenID Connect) – wymiana kodu na tokeny i utworzenie Firebase custom token.
+ * Wymaga zmiennych środowiskowych (Primary Client Secret z LinkedIn Developer Portal):
+ *   - LINKEDIN_CLIENT_ID
+ *   - LINKEDIN_CLIENT_SECRET
+ * Ustawienie: Firebase Console → Functions → linkedinExchangeCode → Environment variables
+ * lub w pliku .env (lokalnie) / Google Secret Manager (produkcja).
+ */
+const LINKEDIN_TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken";
+const LINKEDIN_USERINFO_URL = "https://api.linkedin.com/v2/userinfo";
+
+interface LinkedInTokenResponse {
+  access_token?: string;
+  id_token?: string;
+  expires_in?: number;
+  scope?: string;
+}
+
+interface LinkedInUserInfo {
+  sub?: string;
+  name?: string;
+  given_name?: string;
+  family_name?: string;
+  picture?: string;
+  email?: string;
+  email_verified?: boolean;
+  locale?: string;
+}
+
+export const linkedinExchangeCode = onRequest(
+  { cors: false, region: "europe-west1" },
+  async (req, res) => {
+    setCorsHeaders(res, { allowPost: true, allowAuth: false });
+    if (req.method === "OPTIONS") {
+      res.status(204).send("");
+      return;
+    }
+    if (req.method !== "POST") {
+      res.status(405).setHeader("Content-Type", "application/json").send(
+        JSON.stringify({ error: "Metoda dozwolona: POST" })
+      );
+      return;
+    }
+
+    const clientId = process.env.LINKEDIN_CLIENT_ID;
+    const clientSecret = process.env.LINKEDIN_CLIENT_SECRET;
+    if (!clientId || !clientSecret) {
+      logger.warn("linkedinExchangeCode: LINKEDIN_CLIENT_ID / LINKEDIN_CLIENT_SECRET nie ustawione");
+      res.status(503).setHeader("Content-Type", "application/json").send(
+        JSON.stringify({ error: "LinkedIn OAuth nie skonfigurowany" })
+      );
+      return;
+    }
+
+    let body: { code?: string; redirect_uri?: string };
+    try {
+      body = typeof req.body === "string" ? JSON.parse(req.body) : req.body ?? {};
+    } catch {
+      res.status(400).setHeader("Content-Type", "application/json").send(
+        JSON.stringify({ error: "Nieprawidłowy JSON w body" })
+      );
+      return;
+    }
+
+    const code = typeof body.code === "string" ? body.code.trim() : "";
+    const redirectUri = typeof body.redirect_uri === "string" ? body.redirect_uri.trim() : "";
+    if (!code || !redirectUri) {
+      res.status(400).setHeader("Content-Type", "application/json").send(
+        JSON.stringify({ error: "Wymagane pola: code, redirect_uri" })
+      );
+      return;
+    }
+
+    const tokenParams = new URLSearchParams({
+      grant_type: "authorization_code",
+      code,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirectUri,
+    });
+
+    let tokenRes: Response;
+    try {
+      tokenRes = await fetch(LINKEDIN_TOKEN_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: tokenParams.toString(),
+      });
+    } catch (e) {
+      logger.error("linkedinExchangeCode: błąd połączenia z LinkedIn", e);
+      res.status(502).setHeader("Content-Type", "application/json").send(
+        JSON.stringify({ error: "Błąd połączenia z LinkedIn" })
+      );
+      return;
+    }
+
+    const tokenData = (await tokenRes.json()) as LinkedInTokenResponse & { error?: string };
+    if (!tokenRes.ok || tokenData.error) {
+      logger.warn("linkedinExchangeCode: LinkedIn token error", { status: tokenRes.status, tokenData });
+      res.status(400).setHeader("Content-Type", "application/json").send(
+        JSON.stringify({ error: tokenData.error ?? "Błąd autoryzacji LinkedIn" })
+      );
+      return;
+    }
+
+    const accessToken = tokenData.access_token;
+    let email: string | undefined;
+    let displayName: string | undefined;
+    let photoUrl: string | undefined;
+    if (tokenData.id_token) {
+      try {
+        const parts = (tokenData.id_token as string).split(".");
+        if (parts.length === 3) {
+          const payload = JSON.parse(
+            Buffer.from(parts[1], "base64url").toString("utf8")
+          ) as Record<string, unknown>;
+          if (!email) email = payload.email as string | undefined;
+          if (!displayName) displayName = payload.name as string | undefined;
+          if (!photoUrl) photoUrl = payload.picture as string | undefined;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    if (!email && accessToken) {
+      try {
+        const userRes = await fetch(LINKEDIN_USERINFO_URL, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (userRes.ok) {
+          const userInfo = (await userRes.json()) as LinkedInUserInfo;
+          email = userInfo.email ?? email;
+          displayName = displayName ?? userInfo.name;
+          photoUrl = userInfo.picture;
+        }
+      } catch (e) {
+        logger.warn("linkedinExchangeCode: userinfo failed", e);
+      }
+    }
+
+    if (!email) {
+      res.status(400).setHeader("Content-Type", "application/json").send(
+        JSON.stringify({ error: "LinkedIn nie zwrócił adresu e-mail (wymagany zakres email)" })
+      );
+      return;
+    }
+
+    let uid: string;
+    try {
+      const existing = await auth.getUserByEmail(email);
+      uid = existing.uid;
+      if (displayName || photoUrl) {
+        await auth.updateUser(uid, {
+          ...(displayName && { displayName }),
+          ...(photoUrl && { photoURL: photoUrl }),
+        });
+      }
+    } catch {
+      const newUser = await auth.createUser({
+        email,
+        displayName: displayName ?? email,
+        photoURL: photoUrl,
+        emailVerified: true,
+      });
+      uid = newUser.uid;
+    }
+
+    const customToken = await auth.createCustomToken(uid);
+    res.status(200).setHeader("Content-Type", "application/json").send(
+      JSON.stringify({ customToken })
+    );
   }
 );
 

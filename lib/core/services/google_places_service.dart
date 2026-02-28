@@ -164,8 +164,8 @@ class GooglePlacesService {
         }
       }
       // Normalizuj kod do XX-XXX jeśli jest samymi cyframi
-      if (postalCode != null && postalCode!.isNotEmpty && RegExp(r'^\d{5}$').hasMatch(postalCode!)) {
-        postalCode = '${postalCode!.substring(0, 2)}-${postalCode!.substring(2)}';
+      if (postalCode != null && postalCode.isNotEmpty && RegExp(r'^\d{5}$').hasMatch(postalCode)) {
+        postalCode = '${postalCode.substring(0, 2)}-${postalCode.substring(2)}';
       }
 
       return PlaceDetails(
@@ -240,8 +240,86 @@ class GooglePlacesService {
           if (types.contains('postal_code')) postalCode = longName;
         }
       }
-      if (postalCode != null && postalCode!.isNotEmpty && RegExp(r'^\d{5}$').hasMatch(postalCode!)) {
-        postalCode = '${postalCode!.substring(0, 2)}-${postalCode!.substring(2)}';
+      if (postalCode != null && postalCode.isNotEmpty && RegExp(r'^\d{5}$').hasMatch(postalCode)) {
+        postalCode = '${postalCode.substring(0, 2)}-${postalCode.substring(2)}';
+      }
+
+      return PlaceDetails(
+        formattedAddress: formattedAddress,
+        latitude: lat,
+        longitude: lng,
+        locality: locality,
+        administrativeArea: administrativeArea,
+        street: street,
+        streetNumber: streetNumber,
+        postalCode: postalCode,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Forward geocode: adres tekstowy → współrzędne (PlaceDetails z lat/lng).
+  /// Używane gdy nieruchomość nie ma zapisanych latitude/longitude.
+  Future<PlaceDetails?> geocodeFromAddress(String address) async {
+    final trimmed = address.trim();
+    if (trimmed.isEmpty) return null;
+    if (_apiKey.isEmpty || _apiKey == 'YOUR_GOOGLE_MAPS_API_KEY') return null;
+
+    try {
+      final uri = Uri.parse(_geocodeUrl).replace(
+        queryParameters: {
+          'address': trimmed,
+          'key': _apiKey,
+          'components': 'country:pl',
+          'language': 'pl',
+        },
+      );
+      final response = await _client.get(uri).timeout(const Duration(seconds: 5));
+      if (response.statusCode != 200) return null;
+
+      final json = _decodeJson(response.body);
+      if (json == null) return null;
+
+      final status = json['status'] as String?;
+      if (status != 'OK' && status != 'ZERO_RESULTS') return null;
+
+      final results = json['results'] as List<dynamic>?;
+      if (results == null || results.isEmpty) return null;
+
+      final result = results.first as Map<String, dynamic>;
+      final formattedAddress = result['formatted_address'] as String? ?? '';
+      double? lat;
+      double? lng;
+      final geometry = result['geometry'] as Map<String, dynamic>?;
+      if (geometry != null) {
+        final loc = geometry['location'] as Map<String, dynamic>?;
+        if (loc != null) {
+          lat = (loc['lat'] as num?)?.toDouble();
+          lng = (loc['lng'] as num?)?.toDouble();
+        }
+      }
+
+      String? locality;
+      String? administrativeArea;
+      String? street;
+      String? streetNumber;
+      String? postalCode;
+      final components = result['address_components'] as List<dynamic>?;
+      if (components != null) {
+        for (final c in components) {
+          final map = c as Map<String, dynamic>;
+          final types = map['types'] as List<dynamic>? ?? [];
+          final longName = map['long_name'] as String? ?? '';
+          if (types.contains('locality')) locality = longName;
+          if (types.contains('administrative_area_level_1')) administrativeArea = longName;
+          if (types.contains('route')) street = longName;
+          if (types.contains('street_number')) streetNumber = longName;
+          if (types.contains('postal_code')) postalCode = longName;
+        }
+      }
+      if (postalCode != null && postalCode.isNotEmpty && RegExp(r'^\d{5}$').hasMatch(postalCode)) {
+        postalCode = '${postalCode.substring(0, 2)}-${postalCode.substring(2)}';
       }
 
       return PlaceDetails(

@@ -106,7 +106,7 @@ class _CompleteOAuthRegistrationPageState
         ndaAccepted: true,
         ndaScrolledToEnd: _ndaScrolledToEnd,
         phone: _phoneController.text.trim().isNotEmpty
-            ? _phoneController.text.trim()
+            ? '+48 ${_phoneController.text.trim()}'
             : null,
         preferredInvestmentTypes:
             _preferredTypes.isEmpty ? null : _preferredTypes.toList(),
@@ -141,18 +141,22 @@ class _CompleteOAuthRegistrationPageState
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(currentUserProvider).asData?.value;
+    final authState = ref.watch(currentUserProvider);
     final isMobile =
         MediaQuery.of(context).size.width < AppSpacing.mobileBreakpoint;
+
+    // Wczytywanie stanu auth (np. po pełnym przeładowaniu strony po OAuth) – czekamy.
+    if (authState.isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    final user = authState.asData?.value;
 
     if (user == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (context.mounted) context.go(AppRouter.logowanie);
       });
-      return Scaffold(
-        appBar: const AppBarCustom(showBackButton: true),
-        body: const Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (user.hasIdentityVerifiedAccess) {
@@ -259,22 +263,20 @@ class _CompleteOAuthRegistrationPageState
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
                   inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9+\s\-()]')),
-                    LengthLimitingTextInputFormatter(20),
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9\s\-()]')),
+                    LengthLimitingTextInputFormatter(9),
                   ],
                   decoration: const InputDecoration(
-                    labelText: 'Telefon (opcjonalnie)',
-                    hintText: '+48 123 456 789',
+                    labelText: 'Numer telefonu (opcjonalnie)',
+                    hintText: '123 456 789',
+                    prefixText: '+48 ',
                     border: OutlineInputBorder(),
                   ),
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) return null;
-                    if (RegExp(r'[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]').hasMatch(v)) {
-                      return 'Numer telefonu może zawierać tylko cyfry oraz znaki +, -, spacje, nawiasy.';
-                    }
                     final digitsOnly = v.replaceAll(RegExp(r'[^0-9]'), '');
-                    if (digitsOnly.length < 9) {
-                      return 'Numer telefonu musi zawierać co najmniej 9 cyfr.';
+                    if (digitsOnly.length != 9) {
+                      return 'Wpisz 9 cyfr numeru.';
                     }
                     return null;
                   },
@@ -307,21 +309,43 @@ class _CompleteOAuthRegistrationPageState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Akceptuję Regulamin i NDA*',
+                            'Akceptuję Regulamin, Politykę Prywatności i NDA*',
                             style: AppTextStyles.bodyMedium.copyWith(
                               color: AppColors.textPrimary,
                             ),
                           ),
                           const SizedBox(height: AppSpacing.xs),
-                          GestureDetector(
-                            onTap: _openNdaModal,
-                            child: Text(
-                              'Przeczytaj NDA',
-                              style: AppTextStyles.bodyMedium.copyWith(
-                                color: AppColors.accent,
-                                decoration: TextDecoration.underline,
+                          Wrap(
+                            spacing: AppSpacing.sm,
+                            runSpacing: AppSpacing.xs,
+                            children: [
+                              GestureDetector(
+                                onTap: () =>
+                                    context.push(AppRouter.politykaPrywatnosci),
+                                child: Text(
+                                  'Polityka Prywatności',
+                                  style: AppTextStyles.bodyMedium.copyWith(
+                                    color: AppColors.accent,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
                               ),
-                            ),
+                              Text(
+                                ' • ',
+                                style: AppTextStyles.bodyMedium
+                                    .copyWith(color: AppColors.textSecondary),
+                              ),
+                              GestureDetector(
+                                onTap: _openNdaModal,
+                                child: Text(
+                                  'Przeczytaj NDA',
+                                  style: AppTextStyles.bodyMedium.copyWith(
+                                    color: AppColors.accent,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -431,14 +455,28 @@ class _CompleteOAuthRegistrationPageState
                 const SizedBox(height: AppSpacing.xl),
 
                 // RODO
-                Text(
-                  'Administratorem danych osobowych jest ${AppConfig.dataControllerName}. '
-                  'Twoje dane będą przetwarzane w celu świadczenia usług platformy. '
-                  'Przysługuje Ci prawo dostępu, sprostowania i usunięcia danych. '
-                  'Pełna polityka prywatności dostępna na stronie.',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      'Administratorem danych osobowych jest ${AppConfig.dataControllerName}. '
+                      'Twoje dane będą przetwarzane w celu świadczenia usług platformy. '
+                      'Przysługuje Ci prawo dostępu, sprostowania i usunięcia danych. ',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => context.push(AppRouter.politykaPrywatnosci),
+                      child: Text(
+                        'Polityka Prywatności',
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.accent,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
               ),

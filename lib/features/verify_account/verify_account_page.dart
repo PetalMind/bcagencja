@@ -150,7 +150,7 @@ class _VerifyAccountPageState extends ConsumerState<VerifyAccountPage> {
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 Text(
-                  'Zweryfikuj konto (Level 2)',
+                  'Zweryfikuj konto',
                   style: AppTextStyles.headlineLarge.copyWith(
                     color: AppColors.primaryDark,
                   ),
@@ -158,15 +158,19 @@ class _VerifyAccountPageState extends ConsumerState<VerifyAccountPage> {
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  'Aby zobaczyć pełne oferty (lokalizacja, galeria), zweryfikuj tożsamość przez LinkedIn lub NIP z rejestru VAT.',
+                  'Dokończ weryfikację, aby odblokować pełne oferty: adresy, galerie zdjęć i szczegółowe parametry.',
                   style: AppTextStyles.bodyMedium.copyWith(
                     color: AppColors.textSecondary,
                   ),
                   textAlign: TextAlign.center,
                 ),
+                const SizedBox(height: AppSpacing.xl),
+                _buildProcessSteps(),
                 const SizedBox(height: AppSpacing.xxl),
 
-                // LinkedIn (placeholder)
+                // Krok 1: Tożsamość
+                _buildSectionLabel('1. Weryfikacja tożsamości'),
+                const SizedBox(height: AppSpacing.sm),
                 OutlinedButton.icon(
                   onPressed: null,
                   icon: const Icon(Icons.link, size: 22),
@@ -176,11 +180,18 @@ class _VerifyAccountPageState extends ConsumerState<VerifyAccountPage> {
                     foregroundColor: AppColors.textSecondary,
                   ),
                 ),
-                const SizedBox(height: AppSpacing.lg),
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  'lub zweryfikuj przez NIP (Rejestr WL)',
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
 
                 // NIP
                 Text(
-                  'Weryfikacja NIP (Rejestr WL)',
+                  'NIP (10 cyfr)',
                   style: AppTextStyles.titleSmall.copyWith(
                     color: AppColors.textPrimary,
                   ),
@@ -255,15 +266,10 @@ class _VerifyAccountPageState extends ConsumerState<VerifyAccountPage> {
                     ),
                   ),
                 ],
-                const SizedBox(height: AppSpacing.xl),
+                const SizedBox(height: AppSpacing.xxl),
 
-                // NDA
-                Text(
-                  'Regulamin i NDA',
-                  style: AppTextStyles.titleSmall.copyWith(
-                    color: AppColors.textPrimary,
-                  ),
-                ),
+                // Krok 2: NDA
+                _buildSectionLabel('2. Regulamin i NDA'),
                 const SizedBox(height: AppSpacing.sm),
                 Container(
                   padding: const EdgeInsets.all(AppSpacing.md),
@@ -327,7 +333,7 @@ class _VerifyAccountPageState extends ConsumerState<VerifyAccountPage> {
                 ],
 
                 CustomButton(
-                  label: 'Potwierdź weryfikację',
+                  label: 'Potwierdź weryfikację i odblokuj oferty',
                   icon: AppIcons.login,
                   variant: ButtonVariant.gradient,
                   size: ButtonSize.large,
@@ -339,6 +345,77 @@ class _VerifyAccountPageState extends ConsumerState<VerifyAccountPage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildProcessSteps() {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.grey50,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: AppColors.borderLight),
+      ),
+      child: Row(
+        children: [
+          _buildStepChip(1, 'Tożsamość', true),
+          Expanded(
+            child: Container(
+              height: 2,
+              color: AppColors.grey300,
+            ),
+          ),
+          _buildStepChip(2, 'Regulamin', true),
+          Expanded(
+            child: Container(
+              height: 2,
+              color: AppColors.grey300,
+            ),
+          ),
+          _buildStepChip(3, 'Gotowe', false),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepChip(int step, String label, bool isActive) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            color: isActive ? AppColors.info : AppColors.grey300,
+            shape: BoxShape.circle,
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            '$step',
+            style: AppTextStyles.labelSmall.copyWith(
+              color: isActive ? AppColors.white : AppColors.grey600,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          label,
+          style: AppTextStyles.labelSmall.copyWith(
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionLabel(String text) {
+    return Text(
+      text,
+      style: AppTextStyles.titleSmall.copyWith(
+        color: AppColors.textPrimary,
+        fontWeight: FontWeight.w600,
       ),
     );
   }
